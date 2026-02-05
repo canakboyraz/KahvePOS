@@ -1,0 +1,337 @@
+/**
+ * Dashboard.js
+ * Dashboard sayfası yönetimi - canlı istatistikler ve grafikler
+ */
+
+let weeklySalesChart = null;
+let categoryChart = null;
+let hourlySalesChart = null;
+
+// Dashboard verilerini yükle
+function loadDashboard() {
+    updateDashboardStats();
+    loadWeeklySalesChart();
+    loadCategoryChart();
+    loadTopProducts();
+}
+
+// Dashboard istatistiklerini güncelle
+function updateDashboardStats() {
+    const todaySales = getTodaySales();
+    const summary = calculateDailySummary(todaySales);
+    
+    // Bugünün satışları
+    document.getElementById('dash-today-sales').textContent = summary.totalSales.toFixed(2) + ' ₺';
+    document.getElementById('dash-today-profit').textContent = summary.totalProfit.toFixed(2) + ' ₺';
+    document.getElementById('dash-order-count').textContent = summary.orderCount;
+    
+    // Ürün sayısı
+    document.getElementById('dash-product-count').textContent = allProducts.filter(p => p.active).length;
+    
+    // Dünkü satışlarla karşılaştırma (yüzde değişim)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdaySales = getSalesByDate(yesterday);
+    const yesterdaySummary = calculateDailySummary(yesterdaySales);
+    
+    if (yesterdaySummary.totalSales > 0) {
+        const salesChange = ((summary.totalSales - yesterdaySummary.totalSales) / yesterdaySummary.totalSales * 100).toFixed(1);
+        const profitChange = ((summary.totalProfit - yesterdaySummary.totalProfit) / Math.max(yesterdaySummary.totalProfit, 1) * 100).toFixed(1);
+        
+        const salesChangeEl = document.getElementById('dash-sales-change');
+        const profitChangeEl = document.getElementById('dash-profit-change');
+        
+        salesChangeEl.textContent = (salesChange >= 0 ? '↑ ' : '↓ ') + Math.abs(salesChange) + '%';
+        salesChangeEl.className = 'stat-change ' + (salesChange >= 0 ? 'positive' : 'negative');
+        
+        profitChangeEl.textContent = (profitChange >= 0 ? '↑ ' : '↓ ') + Math.abs(profitChange) + '%';
+        profitChangeEl.className = 'stat-change ' + (profitChange >= 0 ? 'positive' : 'negative');
+    }
+}
+
+// Haftalık satış grafiği
+function loadWeeklySalesChart() {
+    const ctx = document.getElementById('weekly-sales-chart');
+    if (!ctx) return;
+    
+    const last7Days = [];
+    const salesData = [];
+    const profitData = [];
+    
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        last7Days.push(formatDateDisplay(date));
+        
+        const daySales = getSalesByDate(date);
+        const summary = calculateDailySummary(daySales);
+        salesData.push(summary.totalSales);
+        profitData.push(summary.totalProfit);
+    }
+    
+    if (weeklySalesChart) {
+        weeklySalesChart.destroy();
+    }
+    
+    weeklySalesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: last7Days,
+            datasets: [
+                {
+                    label: 'Satış (₺)',
+                    data: salesData,
+                    borderColor: '#6F4E37',
+                    backgroundColor: 'rgba(111, 78, 55, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Kar (₺)',
+                    data: profitData,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Kategori dağılımı grafiği
+function loadCategoryChart() {
+    const ctx = document.getElementById('category-chart');
+    if (!ctx) return;
+    
+    const todaySales = getTodaySales();
+    const categorySales = {};
+    
+    todaySales.forEach(sale => {
+        sale.items.forEach(item => {
+            const product = getProductById(item.productId);
+            if (product) {
+                const category = CATEGORIES[product.category];
+                const categoryName = category ? category.name : 'Diğer';
+                if (!categorySales[categoryName]) {
+                    categorySales[categoryName] = { sales: 0, icon: category ? category.icon : '📦' };
+                }
+                categorySales[categoryName].sales += item.unitPrice * item.quantity;
+            }
+        });
+    });
+    
+    const labels = Object.keys(categorySales);
+    const data = Object.values(categorySales).map(c => c.sales);
+    const icons = Object.values(categorySales).map(c => c.icon);
+    
+    if (categoryChart) {
+        categoryChart.destroy();
+    }
+    
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.map((l, i) => icons[i] + ' ' + l),
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    '#6F4E37',
+                    '#C4A484',
+                    '#4CAF50',
+                    '#FF9800',
+                    '#2196F3',
+                    '#9C27B0'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                }
+            }
+        }
+    });
+}
+
+// En çok satan ürünler
+function loadTopProducts(topContainer = 'top-products-list') {
+    const container = document.getElementById(topContainer);
+    if (!container) return;
+    
+    const allSalesData = getAllSales();
+    const productSales = {};
+    
+    allSalesData.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.productId]) {
+                productSales[item.productId] = {
+                    productId: item.productId,
+                    productName: item.productName,
+                    productIcon: item.productIcon || '📦',
+                    quantity: 0,
+                    totalSales: 0
+                };
+            }
+            productSales[item.productId].quantity += item.quantity;
+            productSales[item.productId].totalSales += item.unitPrice * item.quantity;
+        });
+    });
+    
+    const sorted = Object.values(productSales).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    
+    if (sorted.length === 0) {
+        container.innerHTML = '<p style="color: var(--color-text-light); text-align: center; padding: 2rem;">Henüz satış verisi yok</p>';
+        return;
+    }
+    
+    container.innerHTML = sorted.map((item, index) => {
+        let rankClass = '';
+        if (index === 0) rankClass = 'gold';
+        else if (index === 1) rankClass = 'silver';
+        else if (index === 2) rankClass = 'bronze';
+        
+        return `
+            <div class="top-product-item">
+                <div class="top-product-rank ${rankClass}">${index + 1}</div>
+                <div class="top-product-info">
+                    <div class="top-product-name">${item.productIcon} ${item.productName}</div>
+                    <div class="top-product-sales">${item.quantity} adet satıldı</div>
+                </div>
+                <div class="top-product-value">${item.totalSales.toFixed(2)} ₺</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Rapor sayfası için saatlik satış grafiği
+function loadHourlySalesChart(date) {
+    const ctx = document.getElementById('hourly-sales-chart');
+    if (!ctx) return;
+    
+    const sales = getSalesByDate(date);
+    const hourlyData = Array(24).fill(0);
+    
+    sales.forEach(sale => {
+        const hour = new Date(sale.createdAt).getHours();
+        hourlyData[hour] += sale.totalAmount;
+    });
+    
+    const hours = Array.from({length: 24}, (_, i) => `${i}:00`);
+    
+    if (hourlySalesChart) {
+        hourlySalesChart.destroy();
+    }
+    
+    hourlySalesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hours,
+            datasets: [{
+                label: 'Satış (₺)',
+                data: hourlyData,
+                backgroundColor: 'rgba(111, 78, 55, 0.7)',
+                borderColor: '#6F4E37',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Top 10 ürün listesi (Rapor sayfası için)
+function loadTop10Products(date) {
+    const container = document.getElementById('top10-list');
+    if (!container) return;
+    
+    const sales = getSalesByDate(date);
+    const productSales = {};
+    
+    sales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (!productSales[item.productId]) {
+                productSales[item.productId] = {
+                    productId: item.productId,
+                    productName: item.productName,
+                    productIcon: item.productIcon || '📦',
+                    quantity: 0,
+                    totalSales: 0,
+                    totalProfit: 0
+                };
+            }
+            productSales[item.productId].quantity += item.quantity;
+            productSales[item.productId].totalSales += item.unitPrice * item.quantity;
+            productSales[item.productId].totalProfit += (item.unitPrice - item.costPrice) * item.quantity;
+        });
+    });
+    
+    const sorted = Object.values(productSales).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
+    
+    if (sorted.length === 0) {
+        container.innerHTML = '<p style="color: var(--color-text-light); text-align: center; padding: 2rem;">Bu tarihte satış yok</p>';
+        return;
+    }
+    
+    container.innerHTML = sorted.map((item, index) => {
+        let rankClass = '';
+        if (index === 0) rankClass = 'top1';
+        else if (index === 1) rankClass = 'top2';
+        else if (index === 2) rankClass = 'top3';
+        
+        return `
+            <div class="top10-item">
+                <div class="top10-rank ${rankClass}">${index + 1}</div>
+                <div class="top10-details">
+                    <div class="top10-name">${item.productIcon} ${item.productName}</div>
+                    <div class="top10-stats">${item.quantity} adet • ${item.totalSales.toFixed(2)} ₺ satış</div>
+                </div>
+                <div class="top10-value">${item.totalProfit.toFixed(2)} ₺</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Dashboard'ı yenile (dışarıdan çağrılabilir)
+function refreshDashboard() {
+    if (document.getElementById('dashboard-page').classList.contains('active')) {
+        loadDashboard();
+    }
+}
+
+// Satış yapıldığında dashboard'ı güncelle
+const originalCheckout = window.checkout;
+window.checkout = function() {
+    const result = originalCheckout.apply(this, arguments);
+    refreshDashboard();
+    return result;
+};

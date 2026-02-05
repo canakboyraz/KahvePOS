@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KahvePOS - Modern ve kullanımı kolay kahve dükkanı satış noktası sistemi">
+    <meta name="theme-color" content="#6F4E37">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="brown-translucent">
+    <meta name="apple-mobile-web-app-title" content="KahvePOS">
+    
+    <title>☕ KahvePOS v3.0 - Akıllı Satış Sistemi</title>
+    
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☕</text></svg>">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body data-theme="default">
+    <!-- Header -->
+    <header class="header" id="main-header" style="display: none;">
+        <div class="header-content">
+            <div class="logo">
+                ☕ Kahve<span>POS</span>
+            </div>
+            <button class="menu-toggle" id="menu-toggle" onclick="toggleMenu()">
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+            </button>
+            <nav class="nav-tabs" id="nav-tabs">
+                <button class="nav-tab" data-page="dashboard">📊 Dashboard <span class="shortcut-hint">F1</span></button>
+                <button class="nav-tab active" data-page="pos">🏠 Satış <span class="shortcut-hint">F2</span></button>
+                <button class="nav-tab" data-page="products">📦 Ürünler <span class="shortcut-hint">F3</span></button>
+                <button class="nav-tab" data-page="reports">📈 Rapor <span class="shortcut-hint">F4</span></button>
+                <button class="nav-tab" data-page="users" id="users-tab" style="display: none;">👥 Kullanıcılar <span class="shortcut-hint">F5</span></button>
+            </nav>
+            <div class="header-actions">
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleDarkMode()" title="Karanlık Mod (Ctrl+D)">🌙</button>
+                <button class="settings-btn" onclick="openSettingsModal()" title="Ayarlar (Ctrl+,)">⚙️</button>
+            </div>
+            <div class="user-info" id="user-info" style="display: none;">
+                <span class="activity-indicator"></span>
+                <span id="current-user-name"></span>
+                <button class="logout-btn" onclick="logout()">Çıkış</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container" id="main-container" style="display: none;">
+        
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page">
+            <div class="dashboard-page">
+                <!-- Stats Grid -->
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon primary">💰</div>
+                        <div class="stat-info">
+                            <h3>Bugünkü Satış</h3>
+                            <div class="stat-value" id="dash-today-sales">0 ₺</div>
+                            <div class="stat-change positive" id="dash-sales-change">↑ 0%</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">✨</div>
+                        <div class="stat-info">
+                            <h3>Bugünkü Kar</h3>
+                            <div class="stat-value" id="dash-today-profit">0 ₺</div>
+                            <div class="stat-change positive" id="dash-profit-change">↑ 0%</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">🧾</div>
+                        <div class="stat-info">
+                            <h3>Sipariş Sayısı</h3>
+                            <div class="stat-value" id="dash-order-count">0</div>
+                            <div class="stat-change" id="dash-order-change">Bugün</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon info">📦</div>
+                        <div class="stat-info">
+                            <h3>Toplam Ürün</h3>
+                            <div class="stat-value" id="dash-product-count">0</div>
+                            <div class="stat-change">Aktif ürün</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Charts -->
+                <div class="dashboard-charts">
+                    <div class="chart-card">
+                        <h3>📈 Haftalık Satış Grafiği</h3>
+                        <div class="chart-container">
+                            <canvas id="weekly-sales-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>🥧 Kategori Dağılımı</h3>
+                        <div class="chart-container">
+                            <canvas id="category-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Top Products & Quick Actions -->
+                <div class="dashboard-charts">
+                    <div class="top-products">
+                        <h3>🏆 En Çok Satan Ürünler</h3>
+                        <div id="top-products-list">
+                            <!-- JavaScript ile doldurulacak -->
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>⚡ Hızlı İşlemler</h3>
+                        <div class="quick-actions">
+                            <button class="quick-action-btn" onclick="switchPage('pos')">
+                                <span>🛒</span>
+                                <strong>Yeni Satış</strong>
+                            </button>
+                            <button class="quick-action-btn" onclick="openProductModal()">
+                                <span>➕</span>
+                                <strong>Ürün Ekle</strong>
+                            </button>
+                            <button class="quick-action-btn" onclick="switchPage('reports')">
+                                <span>📊</span>
+                                <strong>Rapor</strong>
+                            </button>
+                            <button class="quick-action-btn" onclick="openBackupModal()">
+                                <span>💾</span>
+                                <strong>Yedekle</strong>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- POS Page (Ana Satış Ekranı) -->
+        <div id="pos-page" class="page active">
+            <div class="pos-layout">
+                <!-- Sol Taraf: Ürünler -->
+                <div class="pos-products">
+                    <!-- Ürün Arama -->
+                    <div class="product-search">
+                        <span class="product-search-icon">🔍</span>
+                        <input type="text" id="product-search-input" placeholder="Ürün ara... (isim veya kategori)" oninput="filterProducts()" autofocus>
+                        <span class="product-search-shortcut">F2</span>
+                    </div>
+                    
+                    <!-- Kategori Tabları -->
+                    <div class="category-tabs" id="category-tabs">
+                        <button class="category-tab active" data-category="all">🎯 Tümü</button>
+                        <!-- Diğer kategoriler JavaScript ile eklenecek -->
+                    </div>
+                    
+                    <!-- Ürün Grid -->
+                    <div class="products-grid" id="products-grid">
+                        <!-- Ürün kartları JavaScript ile eklenecek -->
+                    </div>
+                </div>
+                
+                <!-- Sağ Taraf: Sepet -->
+                <div class="cart-panel">
+                    <div class="cart-header">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>🛒</span>
+                            <h2>Sepet</h2>
+                        </div>
+                        <div class="cart-header-actions">
+                            <button class="cart-header-btn" onclick="toggleCartNote()" title="Müşteri Notu">📝</button>
+                            <button class="cart-header-btn" onclick="toggleDiscount()" title="İndirim Uygula">🏷️</button>
+                        </div>
+                    </div>
+                    
+                    <div class="cart-items" id="cart-items">
+                        <!-- Boş sepet durumu -->
+                        <div class="empty-cart" id="empty-cart">
+                            <div class="empty-cart-icon">🛒</div>
+                            <p>Sepet boş</p>
+                            <p style="font-size: 0.85rem;">Ürünlere tıklayarak ekleyin</p>
+                        </div>
+                    </div>
+                    
+                    <!-- İndirim Bölümü -->
+                    <div class="cart-discount-section" id="cart-discount-section" style="display: none;">
+                        <label style="font-size: 0.85rem; color: var(--color-text-light);">İndirim (%)</label>
+                        <div class="discount-input-group">
+                            <input type="number" id="discount-input" class="discount-input" min="0" max="100" placeholder="0" value="0">
+                            <button class="discount-apply-btn" onclick="applyDiscount()">Uygula</button>
+                        </div>
+                        <div class="discount-info" id="discount-info" style="display: none;">
+                            <span>İndirim: <span class="discount-amount" id="discount-amount">0 ₺</span></span>
+                            <button class="remove-discount-btn" onclick="removeDiscount()">Kaldır</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Müşteri Notu -->
+                    <div id="cart-note-section" style="display: none;">
+                        <textarea id="cart-note-input" class="cart-note-input" placeholder="Müşteri notu ekleyin... (örn: 'şekersiz', 'sıcak servis')"></textarea>
+                    </div>
+                    
+                    <div class="cart-summary" id="cart-summary" style="display: none;">
+                        <div class="summary-row">
+                            <span>Ürün Sayısı:</span>
+                            <span id="cart-count">0</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Ara Toplam:</span>
+                            <span id="cart-subtotal">0 ₺</span>
+                        </div>
+                        <div class="summary-row discount" id="discount-row" style="display: none;">
+                            <span>İndirim:</span>
+                            <span id="cart-discount">-0 ₺</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>TOPLAM:</span>
+                            <span id="cart-total">0 ₺</span>
+                        </div>
+                    </div>
+                    
+                    <div class="cart-actions">
+                        <button class="btn btn-clear" onclick="clearCart()">🗑️ Temizle <span style="font-size: 0.7rem; opacity: 0.7;">(Esc)</span></button>
+                        <button class="btn btn-checkout" id="checkout-btn" onclick="checkout()" disabled>✓ Tamamla <span style="font-size: 0.7rem; opacity: 0.7;">(Enter)</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ürün Yönetimi Sayfası -->
+        <div id="products-page" class="page">
+            <div class="products-page-header">
+                <h1>📦 Ürün Yönetimi</h1>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn-secondary" onclick="openImportModal()">
+                        📥 İçe Aktar
+                    </button>
+                    <button class="btn-secondary" onclick="exportProducts()">
+                        📤 Dışa Aktar
+                    </button>
+                    <button class="btn-primary" onclick="openProductModal()">
+                        ➕ Yeni Ürün Ekle
+                    </button>
+                </div>
+            </div>
+            
+            <div class="products-list" id="products-list">
+                <!-- Ürün listesi JavaScript ile eklenecek -->
+            </div>
+            
+            <div class="empty-state" id="empty-products" style="display: none;">
+                <div class="empty-state-icon">📦</div>
+                <h3>Henüz ürün eklenmemiş</h3>
+                <p>Yeni ürün ekleyerek başlayın</p>
+            </div>
+        </div>
+
+        <!-- Raporlar Sayfası -->
+        <div id="reports-page" class="page">
+            <div class="reports-header">
+                <h1>📊 Satış Raporu</h1>
+                <div class="date-filter">
+                    <label for="report-date">Tarih:</label>
+                    <input type="date" id="report-date" onchange="loadReport()">
+                    <button class="btn-print" onclick="printReport()">🖨️ Yazdır</button>
+                    <button class="btn-export" onclick="exportReportToCSV()">📥 CSV</button>
+                </div>
+            </div>
+            
+            <!-- Dönem Sekmeleri -->
+            <div class="report-period-tabs">
+                <button class="period-tab active" onclick="setReportPeriod('today')">Bugün</button>
+                <button class="period-tab" onclick="setReportPeriod('week')">Bu Hafta</button>
+                <button class="period-tab" onclick="setReportPeriod('month')">Bu Ay</button>
+            </div>
+            
+            <!-- Özet Kartlar -->
+            <div class="report-cards" id="report-cards">
+                <div class="report-card">
+                    <div class="report-card-icon">💰</div>
+                    <div class="report-card-label">Toplam Satış</div>
+                    <div class="report-card-value" id="total-sales">0 ₺</div>
+                </div>
+                <div class="report-card">
+                    <div class="report-card-icon">📊</div>
+                    <div class="report-card-label">Toplam Maliyet</div>
+                    <div class="report-card-value" id="total-cost">0 ₺</div>
+                </div>
+                <div class="report-card profit">
+                    <div class="report-card-icon">✨</div>
+                    <div class="report-card-label">Net Kar</div>
+                    <div class="report-card-value" id="total-profit">0 ₺</div>
+                </div>
+                <div class="report-card">
+                    <div class="report-card-icon">🧾</div>
+                    <div class="report-card-label">Sipariş Sayısı</div>
+                    <div class="report-card-value" id="order-count">0</div>
+                </div>
+            </div>
+            
+            <!-- Satış Grafiği -->
+            <div class="charts-section">
+                <h3>📈 Saatlik Satış Grafiği</h3>
+                <div class="chart-wrapper">
+                    <canvas id="hourly-sales-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Top 10 Ürünler -->
+            <div class="report-section">
+                <h3>🏆 En Çok Satan 10 Ürün</h3>
+                <div class="top10-list" id="top10-list">
+                    <!-- JavaScript ile doldurulacak -->
+                </div>
+            </div>
+            
+            <!-- Ürün Bazlı Satış -->
+            <div class="report-section">
+                <h3>📦 Ürün Bazlı Satış</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Ürün</th>
+                            <th class="numeric">Adet</th>
+                            <th class="numeric">Satış</th>
+                            <th class="numeric">Maliyet</th>
+                            <th class="numeric">Kar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="product-sales-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Sipariş Listesi -->
+            <div class="report-section">
+                <h3>🧾 Sipariş Geçmişi</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Saat</th>
+                            <th>Satış Yapan</th>
+                            <th>Ürünler</th>
+                            <th class="numeric">Tutar</th>
+                            <th>Not</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Kullanıcı Bazlı Satışlar -->
+            <div class="report-section">
+                <h3>👥 Kullanıcı Bazlı Satışlar</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı</th>
+                            <th class="numeric">Sipariş</th>
+                            <th class="numeric">Toplam Satış</th>
+                            <th class="numeric">Kar</th>
+                            <th>En Çok Satan Ürünler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-sales-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="empty-state" id="empty-report" style="display: none;">
+                <div class="empty-state-icon">📊</div>
+                <h3>Bu tarihte satış yok</h3>
+                <p>Başka bir tarih seçin</p>
+            </div>
+        </div>
+
+        <!-- Kullanıcı Yönetimi Sayfası -->
+        <div id="users-page" class="page">
+            <div class="products-page-header">
+                <h1>👥 Kullanıcı Yönetimi</h1>
+                <button class="btn-primary" onclick="openUserModal()">
+                    ➕ Yeni Kullanıcı Ekle
+                </button>
+            </div>
+            
+            <div class="users-list" id="users-list">
+                <!-- Kullanıcı listesi JavaScript ile doldurulacak -->
+            </div>
+            
+            <div class="empty-state" id="empty-users" style="display: none;">
+                <div class="empty-state-icon">👥</div>
+                <h3>Kullanıcı bulunamadı</h3>
+            </div>
+        </div>
+    </main>
+
+    <!-- Giriş Modal -->
+    <div class="modal-overlay active" id="login-modal">
+        <div class="modal login-modal">
+            <div class="modal-header">
+                <h2>☕ KahvePOS v3.0 - Giriş</h2>
+            </div>
+            
+            <div class="login-modal-content">
+                <div class="form-group">
+                    <label for="login-username">Kullanıcı Adı</label>
+                    <input type="text" id="login-username" placeholder="Kullanıcı adınız" autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Şifre</label>
+                    <input type="password" id="login-password" placeholder="Şifreniz">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" onclick="performLogin()" style="width: 100%;">Giriş Yap</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ürün Ekleme/Düzenleme Modal -->
+    <div class="modal-overlay" id="product-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Yeni Ürün Ekle</h2>
+                <button class="modal-close" onclick="closeProductModal()">✕</button>
+            </div>
+            
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="product-id">
+                
+                <div class="form-group">
+                    <label for="product-name">Ürün Adı</label>
+                    <input type="text" id="product-name" required placeholder="örn: Türk Kahvesi">
+                </div>
+                
+                <div class="form-group">
+                    <label for="product-category">Kategori</label>
+                    <select id="product-category" required>
+                        <option value="sicak">☕ Sıcak İçecekler</option>
+                        <option value="soguk">🧊 Soğuk İçecekler</option>
+                        <option value="tatli">🧁 Tatlılar</option>
+                        <option value="diger">📦 Diğer</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="product-cost">Maliyet Fiyatı (₺)</label>
+                        <input type="number" id="product-cost" required min="0" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="product-price">Satış Fiyatı (₺)</label>
+                        <input type="number" id="product-price" required min="0" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Simge Seçin</label>
+                    <div class="icon-selector" id="icon-selector">
+                        <button type="button" class="icon-option selected" data-icon="☕">☕</button>
+                        <button type="button" class="icon-option" data-icon="🍵">🍵</button>
+                        <button type="button" class="icon-option" data-icon="🧋">🧋</button>
+                        <button type="button" class="icon-option" data-icon="🥤">🥤</button>
+                        <button type="button" class="icon-option" data-icon="🍹">🍹</button>
+                        <button type="button" class="icon-option" data-icon="🧃">🧃</button>
+                        <button type="button" class="icon-option" data-icon="🍰">🍰</button>
+                        <button type="button" class="icon-option" data-icon="🧁">🧁</button>
+                        <button type="button" class="icon-option" data-icon="🍪">🍪</button>
+                        <button type="button" class="icon-option" data-icon="🥐">🥐</button>
+                        <button type="button" class="icon-option" data-icon="🥯">🥯</button>
+                        <button type="button" class="icon-option" data-icon="🍩">🍩</button>
+                        <button type="button" class="icon-option" data-icon="🍫">🍫</button>
+                        <button type="button" class="icon-option" data-icon="🥪">🥪</button>
+                        <button type="button" class="icon-option" data-icon="🌯">🌯</button>
+                        <button type="button" class="icon-option" data-icon="📦">📦</button>
+                    </div>
+                    <input type="hidden" id="product-icon" value="☕">
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeProductModal()">İptal</button>
+                    <button type="submit" class="btn-primary">💾 Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kullanıcı Ekleme/Düzenleme Modal -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="user-modal-title">Yeni Kullanıcı Ekle</h2>
+                <button class="modal-close" onclick="closeUserModal()">✕</button>
+            </div>
+            
+            <form id="user-form" onsubmit="saveUser(event)">
+                <input type="hidden" id="user-id">
+                
+                <div class="form-group">
+                    <label for="user-username">Kullanıcı Adı</label>
+                    <input type="text" id="user-username" required placeholder="örn: Ahmet Yılmaz">
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-password">Şifre</label>
+                    <input type="password" id="user-password" placeholder="Şifre">
+                    <small style="color: var(--color-text-light);">Boş bırakırsanız şifre değişmez</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-role">Rol</label>
+                    <select id="user-role" required>
+                        <option value="barista">☕ Barista</option>
+                        <option value="admin">👑 Yönetici</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Yetkiler</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="user-perm-products">
+                            <span>Ürün Yönetimi (Ekleme/Düzenleme/Silme)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="user-perm-reports" checked>
+                            <span>Rapor Görüntüleme</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="user-perm-users">
+                            <span>Kullanıcı Yönetimi</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeUserModal()">İptal</button>
+                    <button type="submit" class="btn-primary">💾 Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ayarlar Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal large">
+            <div class="modal-header">
+                <h2>⚙️ Ayarlar</h2>
+                <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🎨 Tema Ayarları</h3>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkModeFromSettings()">
+                        <span>Karanlık Mod</span>
+                    </label>
+                </div>
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Renk Teması</label>
+                <div class="theme-colors">
+                    <button class="theme-color-btn coffee active" data-theme="default" onclick="setTheme('default')" title="Kahve"></button>
+                    <button class="theme-color-btn blue" data-theme="blue" onclick="setTheme('blue')" title="Mavi"></button>
+                    <button class="theme-color-btn green" data-theme="green" onclick="setTheme('green')" title="Yeşil"></button>
+                    <button class="theme-color-btn purple" data-theme="purple" onclick="setTheme('purple')" title="Mor"></button>
+                    <button class="theme-color-btn red" data-theme="red" onclick="setTheme('red')" title="Kırmızı"></button>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>⏰ Oturum Ayarları</h3>
+                <div class="session-info">
+                    <p>
+                        <span>Giriş Zamanı:</span>
+                        <span id="login-time-display">--</span>
+                    </p>
+                    <p>
+                        <span>Oturum Süresi:</span>
+                        <span id="session-duration-display">--</span>
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label for="auto-logout-time">Otomatik Çıkış Süresi (dakika)</label>
+                    <select id="auto-logout-time" onchange="setAutoLogoutTime()">
+                        <option value="0">Kapalı</option>
+                        <option value="15">15 dakika</option>
+                        <option value="30">30 dakika</option>
+                        <option value="60" selected>1 saat</option>
+                        <option value="120">2 saat</option>
+                        <option value="480">8 saat</option>
+                    </select>
+                </div>
+                <button class="btn-secondary" onclick="openChangePasswordModal()">🔑 Şifre Değiştir</button>
+            </div>
+            
+            <div class="settings-section">
+                <h3>💾 Veri Yönetimi</h3>
+                <div class="backup-info">
+                    <p>
+                        <span>Son Yedekleme:</span>
+                        <span id="last-backup-date">Hiç yedeklenmedi</span>
+                    </p>
+                    <p>
+                        <span>Veri Boyutu:</span>
+                        <span id="data-size">-- KB</span>
+                    </p>
+                </div>
+                <div class="backup-actions">
+                    <button class="btn-primary" onclick="createBackup()">💾 Yedek Al</button>
+                    <button class="btn-secondary" onclick="restoreBackup()">📂 Geri Yükle</button>
+                    <button class="btn-delete" onclick="clearAllData()">🗑️ Tüm Veriyi Sil</button>
+                </div>
+                <input type="file" id="restore-file-input" class="file-input" accept=".json" onchange="handleRestoreFile(event)">
+            </div>
+            
+            <!-- ÖKC (Yazar Kasa) Ayarları -->
+            <div class="settings-section">
+                <h3>🖨️ Yazar Kasa (ÖKC) Ayarları</h3>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="okc-enabled" onchange="toggleOKC()">
+                        <span>Yazar Kasa Kullan (Hugin)</span>
+                    </label>
+                </div>
+                
+                <div id="okc-settings" style="display: none;">
+                    <div class="form-group">
+                        <label for="okc-port">COM Port</label>
+                        <select id="okc-port" onchange="saveOKCSettings()">
+                            <option value="auto">🔍 Otomatik Algıla</option>
+                            <option value="COM1">COM1</option>
+                            <option value="COM2">COM2</option>
+                            <option value="COM3">COM3</option>
+                            <option value="COM4">COM4</option>
+                            <option value="COM5">COM5</option>
+                            <option value="COM6">COM6</option>
+                            <option value="COM7">COM7</option>
+                            <option value="COM8">COM8</option>
+                        </select>
+                        <button class="btn-secondary" onclick="detectOKCPorts()" style="margin-top: 0.5rem; width: 100%;">
+                            🔄 Portları Yenile
+                        </button>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="okc-auto-print" checked onchange="saveOKCSettings()">
+                            <span>Sipariş tamamlandığında otomatik yazdır</span>
+                        </label>
+                    </div>
+                    
+                    <div class="okc-status">
+                        <p>
+                            <span>Bridge Durumu:</span>
+                            <span id="okc-bridge-status" style="font-weight: 600;">❌ Kontrol ediliyor...</span>
+                        </p>
+                        <p>
+                            <span>Cihaz Durumu:</span>
+                            <span id="okc-device-status" style="font-weight: 600;">❌ Kontrol ediliyor...</span>
+                        </p>
+                    </div>
+                    
+                    <div class="okc-actions" style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+                        <button class="btn-secondary" onclick="checkOKCStatus()">🔄 Durumu Kontrol Et</button>
+                        <button class="btn-primary" onclick="printOKCTestReceipt()">🖨️ Test Fişi</button>
+                        <button class="btn-secondary" onclick="printOKCXReport()">📊 X Raporu</button>
+                        <button class="btn-warning" onclick="printOKCZReport()">📈 Z Raporu</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>⌨️ Klavye Kısayolları</h3>
+                <div class="keyboard-hints">
+                    <div class="hint-item">
+                        <span class="hint-key">F1</span>
+                        <span class="hint-desc">Dashboard</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">F2</span>
+                        <span class="hint-desc">Satış Ekranı / Arama</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">F3</span>
+                        <span class="hint-desc">Ürünler</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">F4</span>
+                        <span class="hint-desc">Raporlar</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">F5</span>
+                        <span class="hint-desc">Kullanıcılar</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">Enter</span>
+                        <span class="hint-desc">Siparişi Tamamla</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">Escape</span>
+                        <span class="hint-desc">Sepeti Temizle / Kapat</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">Ctrl+D</span>
+                        <span class="hint-desc">Karanlık Mod</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">Ctrl+S</span>
+                        <span class="hint-desc">Yedek Al</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="hint-key">Ctrl+,</span>
+                        <span class="hint-desc">Ayarlar</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Şifre Değiştirme Modal -->
+    <div class="modal-overlay" id="change-password-modal">
+        <div class="modal password-modal">
+            <div class="modal-header">
+                <h2>🔑 Şifre Değiştir</h2>
+                <button class="modal-close" onclick="closeChangePasswordModal()">✕</button>
+            </div>
+            
+            <form id="change-password-form" onsubmit="changePassword(event)">
+                <div class="form-group">
+                    <label for="current-password">Mevcut Şifre</label>
+                    <input type="password" id="current-password" required placeholder="Mevcut şifreniz">
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Yeni Şifre</label>
+                    <input type="password" id="new-password" required placeholder="Yeni şifreniz">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Şifreyi Onayla</label>
+                    <input type="password" id="confirm-password" required placeholder="Yeni şifrenizi tekrar girin">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeChangePasswordModal()">İptal</button>
+                    <button type="submit" class="btn-primary">Değiştir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Yedekleme Modal -->
+    <div class="modal-overlay" id="backup-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>💾 Veri Yedekleme</h2>
+                <button class="modal-close" onclick="closeBackupModal()">✕</button>
+            </div>
+            
+            <div style="padding: 1rem;">
+                <p style="margin-bottom: 1rem; color: var(--color-text-light);">
+                    Tüm verilerinizi (ürünler, satışlar, kullanıcılar) tek bir dosyada yedekleyebilirsiniz.
+                </p>
+                
+                <div class="backup-info">
+                    <p>
+                        <span>Ürün Sayısı:</span>
+                        <span id="backup-product-count">0</span>
+                    </p>
+                    <p>
+                        <span>Satış Kaydı:</span>
+                        <span id="backup-sale-count">0</span>
+                    </p>
+                    <p>
+                        <span>Kullanıcı Sayısı:</span>
+                        <span id="backup-user-count">0</span>
+                    </p>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeBackupModal()">İptal</button>
+                    <button type="button" class="btn-primary" onclick="downloadBackup()">💾 Yedek İndir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="import-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📥 Veri İçe Aktar</h2>
+                <button class="modal-close" onclick="closeImportModal()">✕</button>
+            </div>
+            
+            <div style="padding: 1rem;">
+                <p style="margin-bottom: 1rem; color: var(--color-text-light);">
+                    CSV veya JSON formatında ürün verisi içe aktarabilirsiniz.
+                </p>
+                
+                <div class="form-group">
+                    <label>Dosya Formatı</label>
+                    <select id="import-format">
+                        <option value="csv">CSV (Excel uyumlu)</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Dosya Seçin</label>
+                    <input type="file" id="import-file-input" accept=".csv,.json">
+                </div>
+                
+                <div style="background: var(--color-bg); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--color-text-light);">
+                    <strong>CSV Formatı:</strong><br>
+                    isim, kategori, maliyet, fiyat, simge<br>
+                    Türk Kahvesi, sicak, 15, 35, ☕
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeImportModal()">İptal</button>
+                    <button type="button" class="btn-primary" onclick="importData()">📥 İçe Aktar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ödeme Modal -->
+    <div class="modal-overlay" id="payment-modal">
+        <div class="modal large">
+            <div class="modal-header">
+                <h2>💳 Ödeme Al</h2>
+                <button class="modal-close" onclick="closePaymentModal()">✕</button>
+            </div>
+            
+            <div class="payment-modal-content">
+                <!-- Sol Panel: Sepet Özeti -->
+                <div class="payment-cart-summary">
+                    <h3>📋 Sipariş Özeti</h3>
+                    <div id="payment-cart-items">
+                        <!-- Sepet ürünleri burada listelenecek -->
+                    </div>
+                    <div class="payment-totals">
+                        <div class="payment-row">
+                            <span>Ara Toplam:</span>
+                            <span id="payment-subtotal">0.00 ₺</span>
+                        </div>
+                        <div class="payment-row" id="payment-discount-row" style="display: none;">
+                            <span>İndirim:</span>
+                            <span id="payment-discount" class="text-danger">-0.00 ₺</span>
+                        </div>
+                        <div class="payment-row payment-row-total">
+                            <span>TOPLAM:</span>
+                            <span id="payment-total">0.00 ₺</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sağ Panel: Ödeme Yöntemleri -->
+                <div class="payment-methods-panel">
+                    <h3>💰 Ödeme Yöntemi Seç</h3>
+                    
+                    <!-- Hızlı Ödeme Butonları -->
+                    <div class="quick-payment-buttons">
+                        <button class="payment-method-btn cash" onclick="quickPayment('cash')">
+                            <span class="method-icon">💵</span>
+                            <span class="method-name">Nakit</span>
+                        </button>
+                        <button class="payment-method-btn credit-card" onclick="quickPayment('credit_card')">
+                            <span class="method-icon">💳</span>
+                            <span class="method-name">Kredi Kartı</span>
+                        </button>
+                        <button class="payment-method-btn debit-card" onclick="quickPayment('debit_card')">
+                            <span class="method-icon">💳</span>
+                            <span class="method-name">Banka Kartı</span>
+                        </button>
+                        <button class="payment-method-btn transfer" onclick="quickPayment('transfer')">
+                            <span class="method-icon">🏦</span>
+                            <span class="method-name">Havale/EFT</span>
+                        </button>
+                        <button class="payment-method-btn mobile" onclick="quickPayment('mobile')">
+                            <span class="method-icon">📱</span>
+                            <span class="method-name">Mobil Ödeme</span>
+                        </button>
+                        <button class="payment-method-btn credit" onclick="quickPayment('credit')">
+                            <span class="method-icon">📝</span>
+                            <span class="method-name">Veresiye</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Çoklu Ödeme (Split Payment) -->
+                    <div class="split-payment-section">
+                        <div class="section-header" onclick="toggleSplitPayment()">
+                            <h4>🔀 Çoklu Ödeme (Bölme)</h4>
+                            <span class="toggle-icon" id="split-toggle-icon">▼</span>
+                        </div>
+                        
+                        <div id="split-payment-panel" style="display: none;">
+                            <div class="split-payment-form">
+                                <div class="form-row">
+                                    <select id="split-method-select">
+                                        <option value="cash">💵 Nakit</option>
+                                        <option value="credit_card">💳 Kredi Kartı</option>
+                                        <option value="debit_card">💳 Banka Kartı</option>
+                                        <option value="transfer">🏦 Havale/EFT</option>
+                                        <option value="mobile">📱 Mobil Ödeme</option>
+                                    </select>
+                                    <input type="number" id="split-amount-input" placeholder="Tutar" min="0" step="0.01">
+                                    <button class="btn-primary" onclick="addSplitPayment()">+ Ekle</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Eklenen Ödemeler Listesi -->
+                            <div id="payment-entries" class="payment-entries">
+                                <div class="payment-empty">
+                                    <p>Henüz ödeme eklenmedi</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Ödeme Özeti -->
+                            <div id="payment-summary" class="payment-summary"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bahşiş -->
+                    <div class="tip-section">
+                        <div class="section-header" onclick="toggleTipSection()">
+                            <h4>🎁 Bahşiş Ekle</h4>
+                            <span class="toggle-icon" id="tip-toggle-icon">▼</span>
+                        </div>
+                        
+                        <div id="tip-panel" style="display: none;">
+                            <div class="tip-buttons">
+                                <button class="tip-btn" onclick="setTipPercent(5)">%5</button>
+                                <button class="tip-btn" onclick="setTipPercent(10)">%10</button>
+                                <button class="tip-btn" onclick="setTipPercent(15)">%15</button>
+                                <button class="tip-btn" onclick="setTipPercent(20)">%20</button>
+                            </div>
+                            <div class="tip-custom">
+                                <label>veya özel tutar:</label>
+                                <input type="number" id="tip-amount-input" placeholder="0.00" min="0" step="0.01" onchange="setTipAmount(this.value)">
+                                <span>₺</span>
+                            </div>
+                            <div class="tip-display" id="tip-display" style="display: none;">
+                                Bahşiş: <strong id="tip-value">0.00 ₺</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Nakit Ödeme Para Üstü Hesaplama -->
+                    <div class="cash-change-section" id="cash-change-section" style="display: none;">
+                        <h4>💵 Nakit Ödeme</h4>
+                        <div class="cash-input">
+                            <label>Alınan Tutar:</label>
+                            <input type="number" id="cash-received" placeholder="0.00" min="0" step="0.01" onkeyup="calculateChange()">
+                            <span>₺</span>
+                        </div>
+                        <div class="change-display" id="change-display">
+                            Para Üstü: <strong id="change-value">0.00 ₺</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer payment-footer">
+                <button type="button" class="btn-secondary" onclick="closePaymentModal()">İptal</button>
+                <button type="button" class="btn-primary btn-lg" id="payment-complete-btn" onclick="completePaymentAndCheckout()">
+                    ✓ Ödemeyi Tamamla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Install Prompt -->
+    <div class="pwa-install-prompt" id="pwa-install-prompt" style="display: none;">
+        <span>📱 KahvePOS'u yükle!</span>
+        <button class="pwa-install-btn" onclick="installPWA()">Yükle</button>
+        <button class="pwa-dismiss-btn" onclick="dismissPWAPrompt()">✕</button>
+    </div>
+
+    <!-- Session Warning -->
+    <div class="session-warning" id="session-warning" style="display: none;">
+        ⚠️ Oturumunuz <span id="session-countdown">60</span> saniye sonra sona erecek!
+        <button class="btn-primary" onclick="extendSession()" style="margin-left: 1rem; padding: 0.5rem 1rem;">Süreyi Uzat</button>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- JavaScript Dosyaları -->
+    <script src="js/storage.js"></script>
+    <script src="js/users.js"></script>
+    <script src="js/products.js"></script>
+    <script src="js/payments.js"></script>
+    <script src="js/okc.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/sales.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/backup.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Service Worker for PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('✅ Service Worker registered'))
+                    .catch(err => console.log('❌ Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
