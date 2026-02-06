@@ -5,7 +5,7 @@
 
 // Durum değişkenleri
 let salesIsOnline = navigator.onLine;
-let offlineQueue = [];
+let salesOfflineQueue = [];
 let localSalesCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
@@ -20,22 +20,22 @@ function checkSupabaseConnection() {
 
 function loadSalesOfflineQueue() {
     try {
-        offlineQueue = JSON.parse(localStorage.getItem('sales_offline_queue') || '[]');
+        salesOfflineQueue = JSON.parse(localStorage.getItem('sales_offline_queue') || '[]');
     } catch (e) {
-        offlineQueue = [];
+        salesOfflineQueue = [];
     }
 }
 
 function saveSalesOfflineQueue() {
     try {
-        localStorage.setItem('sales_offline_queue', JSON.stringify(offlineQueue));
+        localStorage.setItem('sales_offline_queue', JSON.stringify(salesOfflineQueue));
     } catch (e) {
         console.error('Sales offline queue kaydedilemedi:', e);
     }
 }
 
 function addSalesToOfflineQueue(operation, data) {
-    offlineQueue.push({
+    salesOfflineQueue.push({
         id: Date.now().toString(),
         operation,
         data,
@@ -45,13 +45,13 @@ function addSalesToOfflineQueue(operation, data) {
 }
 
 async function syncSalesOfflineChanges() {
-    if (!checkSupabaseConnection() || offlineQueue.length === 0) {
+    if (!checkSupabaseConnection() || salesOfflineQueue.length === 0) {
         return;
     }
 
     const failedItems = [];
 
-    for (const item of offlineQueue) {
+    for (const item of salesOfflineQueue) {
         try {
             switch (item.operation) {
                 case 'add':
@@ -107,10 +107,10 @@ async function syncSalesOfflineChanges() {
         }
     }
 
-    offlineQueue = failedItems;
+    salesOfflineQueue = failedItems;
     saveSalesOfflineQueue();
     
-    if (failedItems.length === 0 && offlineQueue.length !== failedItems.length) {
+    if (failedItems.length === 0 && salesOfflineQueue.length !== failedItems.length) {
         showToast('Satış verileri senkronize edildi', 'success');
     }
 }
@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSalesOfflineQueue();
     
     // Eğer offline queue varsa ve online isek, sync et
-    if (navigator.onLine && offlineQueue.length > 0) {
+    if (navigator.onLine && salesOfflineQueue.length > 0) {
         syncSalesOfflineChanges();
     }
 });

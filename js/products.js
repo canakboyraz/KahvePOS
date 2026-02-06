@@ -17,7 +17,7 @@ let allProducts = [];
 let selectedCategory = 'all';
 let searchQuery = '';
 let productsIsOnline = navigator.onLine;
-let offlineQueue = [];
+let productsOfflineQueue = [];
 let localProductCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
@@ -32,22 +32,22 @@ function checkSupabaseConnection() {
 
 function loadOfflineQueue() {
     try {
-        offlineQueue = JSON.parse(localStorage.getItem('products_offline_queue') || '[]');
+        productsOfflineQueue = JSON.parse(localStorage.getItem('products_offline_queue') || '[]');
     } catch (e) {
-        offlineQueue = [];
+        productsOfflineQueue = [];
     }
 }
 
 function saveOfflineQueue() {
     try {
-        localStorage.setItem('products_offline_queue', JSON.stringify(offlineQueue));
+        localStorage.setItem('products_offline_queue', JSON.stringify(productsOfflineQueue));
     } catch (e) {
         console.error('Offline queue kaydedilemedi:', e);
     }
 }
 
 function addToOfflineQueue(operation, data) {
-    offlineQueue.push({
+    productsOfflineQueue.push({
         id: Date.now().toString(),
         operation,
         data,
@@ -57,13 +57,13 @@ function addToOfflineQueue(operation, data) {
 }
 
 async function syncOfflineChanges() {
-    if (!checkSupabaseConnection() || offlineQueue.length === 0) {
+    if (!checkSupabaseConnection() || productsOfflineQueue.length === 0) {
         return;
     }
 
     const failedItems = [];
 
-    for (const item of offlineQueue) {
+    for (const item of productsOfflineQueue) {
         try {
             switch (item.operation) {
                 case 'add':
@@ -90,10 +90,10 @@ async function syncOfflineChanges() {
         }
     }
 
-    offlineQueue = failedItems;
+    productsOfflineQueue = failedItems;
     saveOfflineQueue();
     
-    if (failedItems.length === 0 && offlineQueue.length !== failedItems.length) {
+    if (failedItems.length === 0 && productsOfflineQueue.length !== failedItems.length) {
         showToast('Offline değişiklikler senkronize edildi', 'success');
     }
 }
