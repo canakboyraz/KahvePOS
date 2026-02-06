@@ -27,7 +27,7 @@ function closeLoginModal() {
 }
 
 // Giriş yap
-function performLogin() {
+async function performLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     
@@ -36,7 +36,7 @@ function performLogin() {
         return;
     }
     
-    const result = login(username, password);
+    const result = await login(username, password);
     
     if (result.success) {
         closeLoginModal();
