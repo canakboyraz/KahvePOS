@@ -512,8 +512,16 @@ async function processOrder() {
         paymentData: paymentData
     };
     
-    // Satışı kaydet
-    if (Storage.addSale(order)) {
+    // Satışı kaydet - Hybrid Mode (Supabase + localStorage)
+    try {
+        // Yeni addSale fonksiyonunu kullan (sales.js'ten)
+        if (typeof addSale === 'function') {
+            await addSale(order);
+        } else {
+            // Fallback: eski Storage yöntemini kullan
+            Storage.addSale(order);
+        }
+        
         // Modal'ı kapat
         closePaymentModal();
         
@@ -581,7 +589,8 @@ async function processOrder() {
         if (typeof loadReport === 'function' && document.getElementById('reports-page').classList.contains('active')) {
             loadReport();
         }
-    } else {
+    } catch (error) {
+        console.error('Sipariş kaydetme hatası:', error);
         showToast('Sipariş kaydedilirken hata oluştu', 'error');
     }
 }

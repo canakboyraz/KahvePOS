@@ -1,7 +1,6 @@
 /**
- * Products.js
- * Ürün yönetimi modülü - v3.0
- * Arama ve filtreleme özellikleri dahil
+ * Products.js - Hybrid Supabase Mode v4.0
+ * Ürün yönetimi modülü - Online (Supabase) + Offline (localStorage) desteği
  */
 
 // Kategoriler
@@ -13,11 +12,119 @@ const CATEGORIES = {
     diger: { id: 'diger', name: 'Diğer', icon: '📦' }
 };
 
+// Durum değişkenleri
 let allProducts = [];
 let selectedCategory = 'all';
 let searchQuery = '';
+let isOnline = navigator.onLine;
+let offlineQueue = [];
+let localProductCache = [];
 
-// UUID oluşturucu
+// ===== SUPABASE BAĞLANTI KONTROLÜ =====
+
+function checkSupabaseConnection() {
+    return typeof window.supabase !== 'undefined' && 
+           window.supabase && 
+           isOnline;
+}
+
+// ===== OFFLINE QUEUE =====
+
+function loadOfflineQueue() {
+    try {
+        offlineQueue = JSON.parse(localStorage.getItem('products_offline_queue') || '[]');
+    } catch (e) {
+        offlineQueue = [];
+    }
+}
+
+function saveOfflineQueue() {
+    try {
+        localStorage.setItem('products_offline_queue', JSON.stringify(offlineQueue));
+    } catch (e) {
+        console.error('Offline queue kaydedilemedi:', e);
+    }
+}
+
+function addToOfflineQueue(operation, data) {
+    offlineQueue.push({
+        id: Date.now().toString(),
+        operation,
+        data,
+        timestamp: new Date().toISOString()
+    });
+    saveOfflineQueue();
+}
+
+async function syncOfflineChanges() {
+    if (!checkSupabaseConnection() || offlineQueue.length === 0) {
+        return;
+    }
+
+    const failedItems = [];
+
+    for (const item of offlineQueue) {
+        try {
+            switch (item.operation) {
+                case 'add':
+                    await window.supabase
+                        .from('products')
+                        .insert(item.data);
+                    break;
+                case 'update':
+                    await window.supabase
+                        .from('products')
+                        .update(item.data)
+                        .eq('id', item.data.id);
+                    break;
+                case 'delete':
+                    await window.supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', item.data.id);
+                    break;
+            }
+        } catch (error) {
+            console.error('Sync hatası:', error);
+            failedItems.push(item);
+        }
+    }
+
+    offlineQueue = failedItems;
+    saveOfflineQueue();
+    
+    if (failedItems.length === 0 && offlineQueue.length !== failedItems.length) {
+        showToast('Offline değişiklikler senkronize edildi', 'success');
+    }
+}
+
+// ===== LOCAL CACHE =====
+
+function updateLocalProductCache(supabaseProduct) {
+    const formattedProduct = {
+        id: supabaseProduct.id,
+        name: supabaseProduct.name,
+        category: supabaseProduct.category,
+        costPrice: supabaseProduct.cost_price,
+        salePrice: supabaseProduct.sale_price,
+        icon: supabaseProduct.icon || '☕',
+        active: supabaseProduct.active !== false,
+        createdAt: supabaseProduct.created_at,
+        updatedAt: supabaseProduct.updated_at
+    };
+
+    const existingIndex = localProductCache.findIndex(p => p.id === formattedProduct.id);
+    if (existingIndex !== -1) {
+        localProductCache[existingIndex] = formattedProduct;
+    } else {
+        localProductCache.push(formattedProduct);
+    }
+
+    Storage.saveProducts(localProductCache);
+}
+
+// ===== UUID OLUŞTURUCU =====
+
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -26,183 +133,264 @@ function generateUUID() {
     });
 }
 
-// Ürünleri yükleme
-function loadProducts() {
-    allProducts = Storage.getProducts();
-    
-    // İlk yüklemede örnek veriler ekle
-    if (Storage.isFirstLoad() && allProducts.length === 0) {
-        allProducts = [
-            {
-                id: generateUUID(),
-                name: 'Türk Kahvesi',
-                category: 'sicak',
-                costPrice: 15,
-                salePrice: 35,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Filtre Kahve',
-                category: 'sicak',
-                costPrice: 18,
-                salePrice: 45,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Latte',
-                category: 'sicak',
-                costPrice: 20,
-                salePrice: 55,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Cappuccino',
-                category: 'sicak',
-                costPrice: 20,
-                salePrice: 55,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Americano',
-                category: 'sicak',
-                costPrice: 15,
-                salePrice: 40,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Espresso',
-                category: 'sicak',
-                costPrice: 12,
-                salePrice: 30,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Ice Latte',
-                category: 'soguk',
-                costPrice: 22,
-                salePrice: 60,
-                icon: '🧊',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Soğuk Kahve',
-                category: 'soguk',
-                costPrice: 20,
-                salePrice: 50,
-                icon: '🥤',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Mocha',
-                category: 'sicak',
-                costPrice: 22,
-                salePrice: 60,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Caramel Macchiato',
-                category: 'sicak',
-                costPrice: 25,
-                salePrice: 65,
-                icon: '☕',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Brownie',
-                category: 'tatli',
-                costPrice: 20,
-                salePrice: 40,
-                icon: '🧁',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Cheesecake',
-                category: 'tatli',
-                costPrice: 25,
-                salePrice: 50,
-                icon: '🍰',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Kurabiye',
-                category: 'tatli',
-                costPrice: 8,
-                salePrice: 20,
-                icon: '🍪',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Tiramisu',
-                category: 'tatli',
-                costPrice: 22,
-                salePrice: 55,
-                icon: '🍰',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Croissant',
-                category: 'diger',
-                costPrice: 12,
-                salePrice: 30,
-                icon: '🥐',
-                active: true,
-                createdAt: new Date().toISOString()
-            },
-            {
-                id: generateUUID(),
-                name: 'Sandviç',
-                category: 'diger',
-                costPrice: 25,
-                salePrice: 50,
-                icon: '🥪',
-                active: true,
-                createdAt: new Date().toISOString()
+// ===== ÜRÜNLERİ YÜKLEME =====
+
+async function loadProducts() {
+    loadOfflineQueue();
+
+    // Önce localStorage'dan yükle
+    localProductCache = Storage.getProducts() || [];
+
+    if (checkSupabaseConnection()) {
+        try {
+            const { data, error } = await window.supabase
+                .from('products')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                allProducts = data.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    category: p.category,
+                    costPrice: p.cost_price,
+                    salePrice: p.sale_price,
+                    icon: p.icon || '☕',
+                    active: p.active !== false,
+                    createdAt: p.created_at,
+                    updatedAt: p.updated_at
+                }));
+
+                // Local cache'i güncelle
+                localProductCache = [...allProducts];
+                Storage.saveProducts(localProductCache);
+
+                // İlk yükleme kontrolü - örnek veriler
+                if (Storage.isFirstLoad() && allProducts.length === 0) {
+                    await seedInitialProducts();
+                }
+            } else if (allProducts.length === 0) {
+                // Supabase'de ürün yok, localStorage'dan varsa oradan al
+                allProducts = localProductCache;
             }
-        ];
+        } catch (error) {
+            console.error('Supabase ürün yükleme hatası:', error);
+            // Local cache'i kullan
+            allProducts = localProductCache;
+        }
+    } else {
+        // Offline mod - localStorage'u kullan
+        allProducts = localProductCache;
         
-        Storage.saveProducts(allProducts);
-        Storage.markFirstLoadComplete();
+        // İlk yükleme ve boşsa örnek veriler ekle
+        if (Storage.isFirstLoad() && allProducts.length === 0) {
+            allProducts = getSampleProducts();
+            Storage.saveProducts(allProducts);
+            Storage.markFirstLoadComplete();
+        }
     }
-    
+
     return allProducts;
 }
 
-// Kategori tablarını oluştur
+async function seedInitialProducts() {
+    const sampleProducts = getSampleProducts();
+    
+    if (checkSupabaseConnection()) {
+        try {
+            const { data, error } = await window.supabase
+                .from('products')
+                .insert(sampleProducts.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    category: p.category,
+                    cost_price: p.costPrice,
+                    sale_price: p.salePrice,
+                    icon: p.icon,
+                    active: p.active
+                })));
+
+            if (!error) {
+                Storage.markFirstLoadComplete();
+            }
+        } catch (error) {
+            console.error('Örnek ürünler eklenemedi:', error);
+        }
+    }
+
+    Storage.saveProducts(sampleProducts);
+    allProducts = sampleProducts;
+}
+
+function getSampleProducts() {
+    return [
+        {
+            id: generateUUID(),
+            name: 'Türk Kahvesi',
+            category: 'sicak',
+            costPrice: 15,
+            salePrice: 35,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Filtre Kahve',
+            category: 'sicak',
+            costPrice: 18,
+            salePrice: 45,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Latte',
+            category: 'sicak',
+            costPrice: 20,
+            salePrice: 55,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Cappuccino',
+            category: 'sicak',
+            costPrice: 20,
+            salePrice: 55,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Americano',
+            category: 'sicak',
+            costPrice: 15,
+            salePrice: 40,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Espresso',
+            category: 'sicak',
+            costPrice: 12,
+            salePrice: 30,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Ice Latte',
+            category: 'soguk',
+            costPrice: 22,
+            salePrice: 60,
+            icon: '🧊',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Soğuk Kahve',
+            category: 'soguk',
+            costPrice: 20,
+            salePrice: 50,
+            icon: '🥤',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Mocha',
+            category: 'sicak',
+            costPrice: 22,
+            salePrice: 60,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Caramel Macchiato',
+            category: 'sicak',
+            costPrice: 25,
+            salePrice: 65,
+            icon: '☕',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Brownie',
+            category: 'tatli',
+            costPrice: 20,
+            salePrice: 40,
+            icon: '🧁',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Cheesecake',
+            category: 'tatli',
+            costPrice: 25,
+            salePrice: 50,
+            icon: '🍰',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Kurabiye',
+            category: 'tatli',
+            costPrice: 8,
+            salePrice: 20,
+            icon: '🍪',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Tiramisu',
+            category: 'tatli',
+            costPrice: 22,
+            salePrice: 55,
+            icon: '🍰',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Croissant',
+            category: 'diger',
+            costPrice: 12,
+            salePrice: 30,
+            icon: '🥐',
+            active: true,
+            createdAt: new Date().toISOString()
+        },
+        {
+            id: generateUUID(),
+            name: 'Sandviç',
+            category: 'diger',
+            costPrice: 25,
+            salePrice: 50,
+            icon: '🥪',
+            active: true,
+            createdAt: new Date().toISOString()
+        }
+    ];
+}
+
+// ===== KATEGORİ TABLARI =====
+
 function renderCategoryTabs() {
     const tabsContainer = document.getElementById('category-tabs');
     if (!tabsContainer) return;
@@ -219,7 +407,6 @@ function renderCategoryTabs() {
     });
 }
 
-// Kategori filtreleme
 function filterByCategory(categoryId) {
     selectedCategory = categoryId;
     renderCategoryTabs();
@@ -228,7 +415,6 @@ function filterByCategory(categoryId) {
 
 // ===== ÜRÜN ARAMA =====
 
-// Ürünleri ara/filtrele
 function filterProducts() {
     const searchInput = document.getElementById('product-search-input');
     if (!searchInput) return;
@@ -237,7 +423,6 @@ function filterProducts() {
     renderProductsGrid();
 }
 
-// Arama input'una odaklan
 function focusSearchInput() {
     const searchInput = document.getElementById('product-search-input');
     if (searchInput) {
@@ -246,7 +431,6 @@ function focusSearchInput() {
     }
 }
 
-// Arama input'unu temizle
 function clearSearch() {
     const searchInput = document.getElementById('product-search-input');
     if (searchInput) {
@@ -256,20 +440,18 @@ function clearSearch() {
     }
 }
 
-// Ürün gridini oluştur (POS ekranı için)
+// ===== ÜRÜN GRIDİ (POS EKRANI) =====
+
 function renderProductsGrid() {
     const gridContainer = document.getElementById('products-grid');
     if (!gridContainer) return;
     
-    // Ürünleri filtrele
     let filteredProducts = allProducts.filter(p => p.active);
     
-    // Kategori filtresi
     if (selectedCategory !== 'all') {
         filteredProducts = filteredProducts.filter(p => p.category === selectedCategory);
     }
     
-    // Arama filtresi
     if (searchQuery) {
         filteredProducts = filteredProducts.filter(p => {
             const nameMatch = p.name.toLowerCase().includes(searchQuery);
@@ -301,7 +483,6 @@ function renderProductsGrid() {
     `).join('');
 }
 
-// Arama terimini vurgula
 function highlightSearchTerm(text) {
     if (!searchQuery) return text;
     
@@ -309,14 +490,12 @@ function highlightSearchTerm(text) {
     return text.replace(regex, '<mark>$1</mark>');
 }
 
-// Regex'de özel karakterleri escape et
 function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ===== ÜRÜN LİSTESİ =====
+// ===== ÜRÜN LİSTESİ (YÖNETİM SAYFASI) =====
 
-// Ürün listesini oluştur (Ürün yönetimi sayfası için)
 function renderProductsList() {
     const listContainer = document.getElementById('products-list');
     const emptyState = document.getElementById('empty-products');
@@ -369,24 +548,20 @@ function renderProductsList() {
 
 // ===== ÜRÜN MODAL =====
 
-// Ürün modal açma
 function openProductModal(productId = null) {
     const modal = document.getElementById('product-modal');
     const modalTitle = document.getElementById('modal-title');
     const form = document.getElementById('product-form');
     
-    // Formu temizle
     form.reset();
     document.getElementById('product-id').value = '';
     
-    // Icon seçicisini sıfırla
     const iconOptions = document.querySelectorAll('.icon-option');
     iconOptions.forEach(opt => opt.classList.remove('selected'));
     if (iconOptions[0]) iconOptions[0].classList.add('selected');
     document.getElementById('product-icon').value = '☕';
     
     if (productId) {
-        // Düzenleme modu
         const product = allProducts.find(p => p.id === productId);
         if (product) {
             modalTitle.textContent = 'Ürün Düzenle';
@@ -397,7 +572,6 @@ function openProductModal(productId = null) {
             document.getElementById('product-price').value = product.salePrice;
             document.getElementById('product-icon').value = product.icon;
             
-            // Icon seçimini ayarla
             iconOptions.forEach(opt => {
                 if (opt.getAttribute('data-icon') === product.icon) {
                     opt.classList.add('selected');
@@ -407,21 +581,20 @@ function openProductModal(productId = null) {
             });
         }
     } else {
-        // Yeni ürün modu
         modalTitle.textContent = 'Yeni Ürün Ekle';
     }
     
     modal.classList.add('active');
 }
 
-// Ürün modal kapatma
 function closeProductModal() {
     const modal = document.getElementById('product-modal');
     if (modal) modal.classList.remove('active');
 }
 
-// Ürün kaydetme
-function saveProduct(event) {
+// ===== ÜRÜN KAYDETME (HYBRID) =====
+
+async function saveProduct(event) {
     event.preventDefault();
     
     const productId = document.getElementById('product-id').value;
@@ -434,7 +607,6 @@ function saveProduct(event) {
         active: true
     };
     
-    // Fiyat kontrolü
     if (productData.salePrice <= productData.costPrice) {
         showToast('Satış fiyatı, maliyet fiyatından yüksek olmalıdır!', 'warning');
         return;
@@ -442,13 +614,42 @@ function saveProduct(event) {
     
     if (productId) {
         // Güncelleme
+        const updatedProduct = {
+            ...productData,
+            id: productId,
+            updatedAt: new Date().toISOString()
+        };
+
+        // Local storage güncelle
         const index = allProducts.findIndex(p => p.id === productId);
         if (index !== -1) {
-            allProducts[index] = {
-                ...allProducts[index],
-                ...productData
-            };
-            showToast('Ürün güncellendi', 'success');
+            allProducts[index] = { ...allProducts[index], ...updatedProduct };
+        }
+
+        if (checkSupabaseConnection()) {
+            try {
+                const { error } = await window.supabase
+                    .from('products')
+                    .update({
+                        name: updatedProduct.name,
+                        category: updatedProduct.category,
+                        cost_price: updatedProduct.costPrice,
+                        sale_price: updatedProduct.salePrice,
+                        icon: updatedProduct.icon,
+                        active: updatedProduct.active
+                    })
+                    .eq('id', productId);
+
+                if (error) throw error;
+                showToast('Ürün güncellendi (Senkronize)', 'success');
+            } catch (error) {
+                console.error('Supabase güncelleme hatası:', error);
+                addToOfflineQueue('update', { ...updatedProduct, id: productId });
+                showToast('Ürün güncellendi (Offline kuyrukta)', 'warning');
+            }
+        } else {
+            addToOfflineQueue('update', { ...updatedProduct, id: productId });
+            showToast('Ürün güncellendi (Offline)', 'info');
         }
     } else {
         // Yeni ürün
@@ -457,41 +658,90 @@ function saveProduct(event) {
             ...productData,
             createdAt: new Date().toISOString()
         };
+
         allProducts.push(newProduct);
-        showToast('Ürün eklendi', 'success');
+
+        if (checkSupabaseConnection()) {
+            try {
+                const { error } = await window.supabase
+                    .from('products')
+                    .insert({
+                        id: newProduct.id,
+                        name: newProduct.name,
+                        category: newProduct.category,
+                        cost_price: newProduct.costPrice,
+                        sale_price: newProduct.salePrice,
+                        icon: newProduct.icon,
+                        active: newProduct.active
+                    });
+
+                if (error) throw error;
+                showToast('Ürün eklendi (Senkronize)', 'success');
+            } catch (error) {
+                console.error('Supabase ekleme hatası:', error);
+                addToOfflineQueue('add', { ...newProduct });
+                showToast('Ürün eklendi (Offline kuyrukta)', 'warning');
+            }
+        } else {
+            addToOfflineQueue('add', { ...newProduct });
+            showToast('Ürün eklendi (Offline)', 'info');
+        }
     }
     
+    // Local storage güncelle
     Storage.saveProducts(allProducts);
     renderProductsList();
     renderProductsGrid();
     closeProductModal();
 }
 
-// Ürün düzenleme
 function editProduct(productId) {
     openProductModal(productId);
 }
 
-// Ürün silme
-function deleteProduct(productId) {
+// ===== ÜRÜN SİLME (HYBRID) =====
+
+async function deleteProduct(productId) {
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     
-    if (confirm(`"${product.name}" ürününü silmek istediğinize emin misiniz?`)) {
-        allProducts = allProducts.filter(p => p.id !== productId);
-        Storage.saveProducts(allProducts);
-        renderProductsList();
-        renderProductsGrid();
-        showToast('Ürün silindi', 'success');
+    if (!confirm(`"${product.name}" ürününü silmek istediğinize emin misiniz?`)) {
+        return;
     }
+
+    // Local storage'dan sil
+    allProducts = allProducts.filter(p => p.id !== productId);
+
+    if (checkSupabaseConnection()) {
+        try {
+            const { error } = await window.supabase
+                .from('products')
+                .delete()
+                .eq('id', productId);
+
+            if (error) throw error;
+            showToast('Ürün silindi (Senkronize)', 'success');
+        } catch (error) {
+            console.error('Supabase silme hatası:', error);
+            addToOfflineQueue('delete', { id: productId });
+            showToast('Ürün silindi (Offline kuyrukta)', 'warning');
+        }
+    } else {
+        addToOfflineQueue('delete', { id: productId });
+        showToast('Ürün silindi (Offline)', 'info');
+    }
+    
+    Storage.saveProducts(allProducts);
+    renderProductsList();
+    renderProductsGrid();
 }
 
-// ID'ye göre ürün getir
+// ===== YARDIMCI FONKSİYONLAR =====
+
 function getProductById(productId) {
     return allProducts.find(p => p.id === productId);
 }
 
-// İsme göre ürün ara (tam eşleşme veya benzer)
 function findProductsByName(name) {
     const searchName = name.toLowerCase().trim();
     return allProducts.filter(p => 
@@ -499,9 +749,20 @@ function findProductsByName(name) {
     );
 }
 
+// ===== ONLINE/OFFLINE EVENT LISTENERS =====
+
+window.addEventListener('online', () => {
+    isOnline = true;
+    syncOfflineChanges();
+});
+
+window.addEventListener('offline', () => {
+    isOnline = false;
+    showToast('Offline moda geçildi', 'info');
+});
+
 // ===== INIT =====
 
-// Icon seçici için event listener
 document.addEventListener('DOMContentLoaded', () => {
     const iconOptions = document.querySelectorAll('.icon-option');
     iconOptions.forEach(option => {
@@ -513,7 +774,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Arama input'u için Enter tuşu
     const searchInput = document.getElementById('product-search-input');
     if (searchInput) {
         searchInput.addEventListener('keydown', (e) => {
@@ -521,6 +781,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearSearch();
             }
         });
+    }
+
+    // Offline queue'yu yükle
+    loadOfflineQueue();
+    
+    // Eğer offline queue varsa ve online isek, sync et
+    if (navigator.onLine && offlineQueue.length > 0) {
+        syncOfflineChanges();
     }
 });
 
