@@ -1,37 +1,22 @@
 /**
- * Users.js
- * Kullanıcı yönetimi modülü
+ * Users.js - Supabase Entegrasyonlu
+ * Kullanıcı yönetimi modülü - Hybrid Mode
+ * 
+ * WORKFLOW:
+ * - Online: Supabase'den veri alır, localStorage cache'ler
+ * - Offline: localStorage'tan çalışır, queue'ya ekler
+ * - Sync: Online olunca değişiklikleri Supabase'e gönderir
  */
 
-// Varsayılan kullanıcılar (ilk kurulum)
+// Varsayılan kullanıcılar (localStorage fallback için)
 const DEFAULT_USERS = [
     {
         id: 'admin_001',
         username: 'canakboyraz',
-        password: '09081993',
+        password: '09081993', // Not: Supabase'de hash'li şifre kullanılır
         role: 'admin',
         canManageUsers: true,
         canManageProducts: true,
-        canViewReports: true,
-        createdAt: new Date().toISOString()
-    },
-    {
-        id: 'barista_001',
-        username: 'Barista1',
-        password: '1234',
-        role: 'barista',
-        canManageUsers: false,
-        canManageProducts: false,
-        canViewReports: true,
-        createdAt: new Date().toISOString()
-    },
-    {
-        id: 'barista_002',
-        username: 'Barista2',
-        password: '1234',
-        role: 'barista',
-        canManageUsers: false,
-        canManageProducts: false,
         canViewReports: true,
         createdAt: new Date().toISOString()
     }
@@ -53,56 +38,172 @@ const ROLES = {
 
 // Şu anki oturum
 let currentUser = null;
+let isOnline = navigator.onLine;
 
-// Kullanıcıları yükle
-function loadUsers() {
-    const users = Storage.get('kahvepos_users');
-    if (!users) {
-        // İlk kurulum - varsayılan kullanıcıları kaydet
-        Storage.set('kahvepos_users', DEFAULT_USERS);
-        return DEFAULT_USERS;
+// Online/Offline durumunu izle
+window.addEventListener('online', () => {
+    isOnline = true;
+    console.log('🟢 Online mod - Supabase aktif');
+    syncOfflineChanges();
+});
+
+window.addEventListener('offline', () => {
+    isOnline = false;
+    console.log('🔴 Offline mod - localStorage aktif');
+});
+
+// ==================== SUPABASE ENTEGRASYONLU FONKSİYONLAR ====================
+
+/**
+ * Kullanıcı girişi (Supabase Auth)
+ */
+async function login(username, password) {
+    // Önce localStorage'ta kontrol et (fallback)
+    const localUsers = Storage.get('kahvepos_users');
+    if (localUsers) {
+        const localUser = localUsers.find(u => u.username === username && u.password === password);
+        if (localUser) {
+            currentUser = localUser;
+            sessionStorage.setItem('kahvepos_current_user', JSON.stringify(localUser));
+            sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
+            
+            // Online ise Supabase'e de bağlanmayı dene
+            if (isOnline && window.SupabaseService) {
+                try {
+                    // Supabase'de email olarak username@local.temp kullan (geçici)
+                    const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
+                    if (result.success) {
+                        console.log('✅ Supabase login başarılı');
+                    }
+                } catch (error) {
+                    console.log('⚠️ Supabase login başarısız, localStorage kullanılıyor');
+                }
+            }
+            
+            return { success: true, message: 'Giriş başarılı', user: localUser };
+        }
     }
     
-    // Admin kullanıcısının username'ini kontrol et - eğer eski ise güncelle
-    const adminUser = users.find(u => u.id === 'admin_001');
-    if (adminUser && adminUser.username !== 'canakboyraz') {
-        // Eski kullanıcı yapısı tespit edildi - varsayılanlara sıfırla
-        console.log('🔄 Kullanıcı veritabanı güncelleniyor...');
-        Storage.set('kahvepos_users', DEFAULT_USERS);
-        return DEFAULT_USERS;
+    // Supabase Auth ile dene
+    if (isOnline && window.SupabaseService) {
+        try {
+            const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
+            if (result.success) {
+                currentUser = result.user;
+                sessionStorage.setItem('kahvepos_current_user', JSON.stringify(result.user));
+                sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
+                
+                // Local cache'e güncelle
+                updateLocalUserCache(result.user);
+                
+                return { success: true, message: 'Giriş başarılı', user: result.user };
+            }
+        } catch (error) {
+            console.log('⚠️ Supabase login hatası:', error.message);
+        }
     }
     
-    return users;
+    return { success: false, message: 'Kullanıcı adı veya şifre hatalı' };
 }
 
-// Kullanıcıları kaydet
-function saveUsers(users) {
-    Storage.set('kahvepos_users', users);
-}
-
-// Tüm kullanıcıları getir
-function getAllUsers() {
-    return loadUsers();
-}
-
-// Kullanıcı adına göre kullanıcı bul
-function getUserByUsername(username) {
-    const users = getAllUsers();
-    return users.find(u => u.username.toLowerCase() === username.toLowerCase());
-}
-
-// ID'ye göre kullanıcı bul
-function getUserById(userId) {
-    const users = getAllUsers();
-    return users.find(u => u.id === userId);
-}
-
-// Yeni kullanıcı ekle
-function addUser(userData) {
-    const users = getAllUsers();
+/**
+ * Çıkış yap
+ */
+async function logout() {
+    // Supabase'den çıkış
+    if (isOnline && window.SupabaseService) {
+        await SupabaseService.logout();
+    }
     
+    // Local session temizle
+    currentUser = null;
+    sessionStorage.removeItem('kahvepos_current_user');
+    sessionStorage.removeItem('kahvepos_login_time');
+    sessionStorage.removeItem('kahvepos_auth_products');
+    sessionStorage.removeItem('kahvepos_auth_reports');
+    
+    console.log('👤 Çıkış yapıldı');
+    return { success: true };
+}
+
+/**
+ * Oturumu kontrol et
+ */
+function checkSession() {
+    const sessionUser = sessionStorage.getItem('kahvepos_current_user');
+    if (!sessionUser) {
+        currentUser = null;
+        return null;
+    }
+    
+    currentUser = JSON.parse(sessionUser);
+    
+    // Online ise Supabase'den güncel veriyi al
+    if (isOnline && window.SupabaseService && window.SupabaseService.userProfile) {
+        currentUser = window.SupabaseService.userProfile;
+        sessionStorage.setItem('kahvepos_current_user', JSON.stringify(currentUser));
+    }
+    
+    return currentUser;
+}
+
+/**
+ * Şu anki kullanıcıyı getir
+ */
+function getCurrentUser() {
+    if (!currentUser) {
+        checkSession();
+    }
+    return currentUser;
+}
+
+/**
+ * Tüm kullanıcıları getir (Hybrid)
+ */
+async function getAllUsers() {
+    // Önce localStorage'tan getir (hızlı erişim)
+    let localUsers = Storage.get('kahvepos_users');
+    if (!localUsers) {
+        Storage.set('kahvepos_users', DEFAULT_USERS);
+        localUsers = DEFAULT_USERS;
+    }
+    
+    // Online ise Supabase'den güncelle
+    if (isOnline && window.SupabaseService) {
+        try {
+            const supabaseUsers = await SupabaseService.getUsers();
+            if (supabaseUsers.length > 0) {
+                // Supabase kullanıcılarını localStorage formatına çevir
+                const formattedUsers = supabaseUsers.map(u => ({
+                    id: u.id,
+                    username: u.username,
+                    password: '***', // Şifre Supabase'de saklanıyor
+                    role: u.role,
+                    canManageUsers: u.permissions?.users || false,
+                    canManageProducts: u.permissions?.products || false,
+                    canViewReports: u.permissions?.reports !== false,
+                    createdAt: u.created_at
+                }));
+                
+                // Local cache güncelle
+                Storage.set('kahvepos_users', formattedUsers);
+                return formattedUsers;
+            }
+        } catch (error) {
+            console.log('⚠️ Supabase kullanıcı yükleme hatası, localStorage kullanılıyor');
+        }
+    }
+    
+    return localUsers;
+}
+
+/**
+ * Yeni kullanıcı ekle (Hybrid)
+ */
+async function addUser(userData) {
     // Kullanıcı adı kontrolü
-    if (getUserByUsername(userData.username)) {
+    const users = await getAllUsers();
+    if (users.find(u => u.username === userData.username)) {
         return { success: false, message: 'Bu kullanıcı adı zaten kullanılıyor' };
     }
     
@@ -117,142 +218,304 @@ function addUser(userData) {
         createdAt: new Date().toISOString()
     };
     
+    // Local storage'a ekle (hızlı erişim için)
     users.push(newUser);
-    saveUsers(users);
+    Storage.set('kahvepos_users', users);
+    
+    // Online ise Supabase'e de ekle
+    if (isOnline && window.SupabaseService) {
+        try {
+            // Supabase Auth'da kullanıcı oluştur
+            const { data, error } = await window.supabase.auth.signUp({
+                email: `${userData.username}@kahvepos.local`,
+                password: userData.password,
+                options: {
+                    data: {
+                        username: userData.username,
+                        role: userData.role || 'barista'
+                    }
+                }
+            });
+            
+            if (!error && data.user) {
+                // Profil oluştur
+                const { error: profileError } = await window.supabase
+                    .from('profiles')
+                    .insert({
+                        id: data.user.id,
+                        username: userData.username,
+                        role: userData.role || 'barista',
+                        permissions: {
+                            products: false,
+                            reports: true,
+                            users: false
+                        }
+                    });
+                
+                if (!profileError) {
+                    // Local ID'yi Supabase ID ile güncelle
+                    newUser.id = data.user.id;
+                    Storage.set('kahvepos_users', users);
+                    console.log('✅ Kullanıcı Supabase\'e eklendi');
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Supabase\'e eklenemedi, sadece locale kaydedildi:', error.message);
+            // Offline queue'ya ekle
+            addToOfflineQueue('addUser', newUser);
+        }
+    } else {
+        // Offline ise queue'ya ekle
+        addToOfflineQueue('addUser', newUser);
+    }
     
     return { success: true, message: 'Kullanıcı eklendi', user: newUser };
 }
 
-// Kullanıcı güncelle
-function updateUser(userId, userData) {
-    const users = getAllUsers();
+/**
+ * Kullanıcı güncelle (Hybrid)
+ */
+async function updateUser(userId, userData) {
+    const users = await getAllUsers();
     const index = users.findIndex(u => u.id === userId);
     
     if (index === -1) {
         return { success: false, message: 'Kullanıcı bulunamadı' };
     }
     
-    // Kullanıcı adı değişiyorsa, yeni adın kullanılabilirliğini kontrol et
-    if (userData.username && userData.username !== users[index].username) {
-        if (getUserByUsername(userData.username)) {
-            return { success: false, message: 'Bu kullanıcı adı zaten kullanılıyor' };
-        }
-    }
-    
-    // Admin kullanıcısının rolü değiştirilemez
+    // Admin rolü değiştirilemez
     if (users[index].role === 'admin' && userData.role && userData.role !== 'admin') {
         return { success: false, message: 'Admin kullanıcısının rolü değiştirilemez' };
     }
     
+    // Local storage'da güncelle
     users[index] = {
         ...users[index],
         ...userData,
         id: users[index].id // ID değiştirilemez
     };
+    Storage.set('kahvepos_users', users);
     
-    saveUsers(users);
+    // Online ise Supabase'de güncelle
+    if (isOnline && window.SupabaseService) {
+        try {
+            const { error } = await window.supabase
+                .from('profiles')
+                .update({
+                    username: userData.username,
+                    role: userData.role || users[index].role,
+                    permissions: {
+                        products: userData.canManageProducts || false,
+                        reports: userData.canViewReports !== false,
+                        users: userData.canManageUsers || false
+                    },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', userId);
+            
+            if (!error) {
+                console.log('✅ Kullanıcı Supabase\'de güncellendi');
+            }
+        } catch (error) {
+            console.log('⚠️ Supabase güncelleme hatası:', error.message);
+            addToOfflineQueue('updateUser', { userId, userData });
+        }
+    } else {
+        addToOfflineQueue('updateUser', { userId, userData });
+    }
     
     return { success: true, message: 'Kullanıcı güncellendi', user: users[index] };
 }
 
-// Kullanıcı sil
-function deleteUser(userId) {
-    const users = getAllUsers();
-    const user = getUserById(userId);
+/**
+ * Kullanıcı sil (Hybrid)
+ */
+async function deleteUser(userId) {
+    const users = await getAllUsers();
+    const user = users.find(u => u.id === userId);
     
     if (!user) {
         return { success: false, message: 'Kullanıcı bulunamadı' };
     }
     
-    // Admin kullanıcısı silinemez
+    // Admin silinemez
     if (user.role === 'admin') {
         return { success: false, message: 'Admin kullanıcısı silinemez' };
     }
     
+    // Local storage'dan sil
     const filteredUsers = users.filter(u => u.id !== userId);
-    saveUsers(filteredUsers);
+    Storage.set('kahvepos_users', filteredUsers);
+    
+    // Online ise Supabase'den sil
+    if (isOnline && window.SupabaseService) {
+        try {
+            // Supabase Auth'dan sil
+            await window.supabase.auth.admin.deleteUser(userId);
+            
+            // Profil sil (soft delete - isActive = false)
+            await window.supabase
+                .from('profiles')
+                .update({ is_active: false })
+                .eq('id', userId);
+            
+            console.log('✅ Kullanıcı Supabase\'den silindi');
+        } catch (error) {
+            console.log('⚠️ Supabase silme hatası:', error.message);
+            addToOfflineQueue('deleteUser', { userId });
+        }
+    } else {
+        addToOfflineQueue('deleteUser', { userId });
+    }
     
     return { success: true, message: 'Kullanıcı silindi' };
 }
 
-// Giriş yap
-function login(username, password) {
-    const user = getUserByUsername(username);
-    
-    if (!user) {
-        return { success: false, message: 'Kullanıcı bulunamadı' };
-    }
-    
-    if (user.password !== password) {
-        return { success: false, message: 'Şifre hatalı' };
-    }
-    
-    // Oturumu aç
-    currentUser = user;
-    sessionStorage.setItem('kahvepos_current_user', JSON.stringify(user));
-    sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
-    
-    return { success: true, message: 'Giriş başarılı', user: user };
+/**
+ * Kullanıcı adına göre kullanıcı bul
+ */
+async function getUserByUsername(username) {
+    const users = await getAllUsers();
+    return users.find(u => u.username.toLowerCase() === username.toLowerCase());
 }
 
-// Çıkış yap
-function logoutUser() {
-    currentUser = null;
-    sessionStorage.removeItem('kahvepos_current_user');
-    sessionStorage.removeItem('kahvepos_login_time');
-    sessionStorage.removeItem('kahvepos_auth_products');
-    sessionStorage.removeItem('kahvepos_auth_reports');
+/**
+ * ID'ye göre kullanıcı bul
+ */
+async function getUserById(userId) {
+    const users = await getAllUsers();
+    return users.find(u => u.id === userId);
 }
 
-// Oturumu kontrol et
-function checkSession() {
-    const sessionUser = sessionStorage.getItem('kahvepos_current_user');
-    if (!sessionUser) {
-        currentUser = null;
-        return null;
+// ==================== YARDIMCI FONKSİYONLAR ====================
+
+/**
+ * Local user cache güncelle
+ */
+function updateLocalUserCache(supabaseUser) {
+    const localUsers = Storage.get('kahvepos_users') || [];
+    const index = localUsers.findIndex(u => u.id === supabaseUser.id);
+    
+    const formattedUser = {
+        id: supabaseUser.id,
+        username: supabaseUser.username,
+        password: '***',
+        role: supabaseUser.role,
+        canManageUsers: supabaseUser.permissions?.users || false,
+        canManageProducts: supabaseUser.permissions?.products || false,
+        canViewReports: supabaseUser.permissions?.reports !== false,
+        createdAt: supabaseUser.created_at
+    };
+    
+    if (index >= 0) {
+        localUsers[index] = formattedUser;
+    } else {
+        localUsers.push(formattedUser);
     }
     
-    currentUser = JSON.parse(sessionUser);
-    return currentUser;
+    Storage.set('kahvepos_users', localUsers);
 }
 
-// Şu anki kullanıcıyı getir
-function getCurrentUser() {
-    if (!currentUser) {
-        checkSession();
+/**
+ * Offline queue'ya işlem ekle
+ */
+function addToOfflineQueue(operation, data) {
+    const queue = JSON.parse(localStorage.getItem('kahvepos_offline_queue') || '[]');
+    queue.push({
+        operation,
+        data,
+        timestamp: new Date().toISOString()
+    });
+    localStorage.setItem('kahvepos_offline_queue', JSON.stringify(queue));
+    console.log('📥 Offline queue\'ya eklendi:', operation);
+}
+
+/**
+ * Offline değişiklikleri senkronize et
+ */
+async function syncOfflineChanges() {
+    const queue = JSON.parse(localStorage.getItem('kahvepos_offline_queue') || '[]');
+    if (queue.length === 0) return;
+    
+    console.log('🔄 Offline değişiklikler senkronize ediliyor...');
+    
+    for (const item of queue) {
+        try {
+            switch (item.operation) {
+                case 'addUser':
+                    await addUser(item.data);
+                    break;
+                case 'updateUser':
+                    await updateUser(item.data.userId, item.data.userData);
+                    break;
+                case 'deleteUser':
+                    await deleteUser(item.data.userId);
+                    break;
+            }
+        } catch (error) {
+            console.error('❌ Senkronizasyon hatası:', item.operation, error);
+        }
     }
-    return currentUser;
+    
+    localStorage.setItem('kahvepos_offline_queue', '[]');
+    console.log('✅ Offline senkronizasyon tamamlandı');
 }
 
-// Yetki kontrolü
+// ==================== LEGACY FONKSİYONLAR (Gerile uyumluluk) ====================
+
+/**
+ * Kullanıcıları yükle (Legacy)
+ */
+function loadUsers() {
+    return Storage.get('kahvepos_users') || DEFAULT_USERS;
+}
+
+/**
+ * Kullanıcıları kaydet (Legacy)
+ */
+function saveUsers(users) {
+    Storage.set('kahvepos_users', users);
+}
+
+// ==================== YETKİ KONTROLLERİ ====================
+
+/**
+ * Yetki kontrolü
+ */
 function hasPermission(permission) {
     const user = getCurrentUser();
     if (!user) return false;
     
     switch (permission) {
         case 'manageUsers':
-            return user.canManageUsers;
+            return user.canManageUsers || user.role === 'admin';
         case 'manageProducts':
-            return user.canManageProducts;
+            return user.canManageProducts || user.role === 'admin';
         case 'viewReports':
-            return user.canViewReports;
+            return user.canViewReports !== false;
         default:
             return false;
     }
 }
 
-// Kullanıcı giriş yapmış mı?
+/**
+ * Kullanıcı giriş yapmış mı?
+ */
 function isLoggedIn() {
     return getCurrentUser() !== null;
 }
 
-// Kullanıcının admin mi?
+/**
+ * Kullanıcının admin mi?
+ */
 function isAdmin() {
     const user = getCurrentUser();
     return user && user.role === 'admin';
 }
 
-// UUID oluştur
+/**
+ * UUID oluştur
+ */
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -260,3 +523,37 @@ function generateUUID() {
         return v.toString(16);
     });
 }
+
+// ==================== INIT ====================
+
+// Sayfa yüklendiğinde
+document.addEventListener('DOMContentLoaded', () => {
+    // Varsayılan kullanıcıları kontrol et
+    const users = Storage.get('kahvepos_users');
+    if (!users) {
+        Storage.set('kahvepos_users', DEFAULT_USERS);
+    }
+    
+    // Supabase servisini başlat
+    if (window.SupabaseService) {
+        SupabaseService.init().catch(error => {
+            console.log('⚠️ Supabase başlatılamadı, localStorage kullanılıyor');
+        });
+    }
+});
+
+// Export for global access
+window.Users = {
+    login,
+    logout,
+    getAllUsers,
+    addUser,
+    updateUser,
+    deleteUser,
+    getUserByUsername,
+    getUserById,
+    getCurrentUser,
+    hasPermission,
+    isLoggedIn,
+    isAdmin
+};
