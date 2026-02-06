@@ -787,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadOfflineQueue();
     
     // Eğer offline queue varsa ve online isek, sync et
-    if (navigator.onLine && offlineQueue.length > 0) {
+    if (navigator.onLine && productsOfflineQueue.length > 0) {
         syncOfflineChanges();
     }
 });
