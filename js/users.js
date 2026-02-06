@@ -38,17 +38,17 @@ const ROLES = {
 
 // Şu anki oturum
 let currentUser = null;
-let isOnline = navigator.onLine;
+let usersIsOnline = navigator.onLine;
 
 // Online/Offline durumunu izle
 window.addEventListener('online', () => {
-    isOnline = true;
+    usersIsOnline = true;
     console.log('🟢 Online mod - Supabase aktif');
     syncOfflineChanges();
 });
 
 window.addEventListener('offline', () => {
-    isOnline = false;
+    usersIsOnline = false;
     console.log('🔴 Offline mod - localStorage aktif');
 });
 
@@ -68,7 +68,7 @@ async function login(username, password) {
             sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
             
             // Online ise Supabase'e de bağlanmayı dene
-            if (isOnline && window.SupabaseService) {
+            if (usersIsOnline && window.SupabaseService) {
                 try {
                     // Supabase'de email olarak username@local.temp kullan (geçici)
                     const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
@@ -85,7 +85,7 @@ async function login(username, password) {
     }
     
     // Supabase Auth ile dene
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         try {
             const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
             if (result.success) {
@@ -111,7 +111,7 @@ async function login(username, password) {
  */
 async function logout() {
     // Supabase'den çıkış
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         await SupabaseService.logout();
     }
     
@@ -139,7 +139,7 @@ function checkSession() {
     currentUser = JSON.parse(sessionUser);
     
     // Online ise Supabase'den güncel veriyi al
-    if (isOnline && window.SupabaseService && window.SupabaseService.userProfile) {
+    if (usersIsOnline && window.SupabaseService && window.SupabaseService.userProfile) {
         currentUser = window.SupabaseService.userProfile;
         sessionStorage.setItem('kahvepos_current_user', JSON.stringify(currentUser));
     }
@@ -169,7 +169,7 @@ async function getAllUsers() {
     }
     
     // Online ise Supabase'den güncelle
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         try {
             const supabaseUsers = await SupabaseService.getUsers();
             if (supabaseUsers.length > 0) {
@@ -223,7 +223,7 @@ async function addUser(userData) {
     Storage.set('kahvepos_users', users);
     
     // Online ise Supabase'e de ekle
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         try {
             // Supabase Auth'da kullanıcı oluştur
             const { data, error } = await window.supabase.auth.signUp({
@@ -297,7 +297,7 @@ async function updateUser(userId, userData) {
     Storage.set('kahvepos_users', users);
     
     // Online ise Supabase'de güncelle
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         try {
             const { error } = await window.supabase
                 .from('profiles')
@@ -348,7 +348,7 @@ async function deleteUser(userId) {
     Storage.set('kahvepos_users', filteredUsers);
     
     // Online ise Supabase'den sil
-    if (isOnline && window.SupabaseService) {
+    if (usersIsOnline && window.SupabaseService) {
         try {
             // Supabase Auth'dan sil
             await window.supabase.auth.admin.deleteUser(userId);

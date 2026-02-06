@@ -4,16 +4,16 @@
  */
 
 // Durum değişkenleri
-let isOnline = navigator.onLine;
+let salesIsOnline = navigator.onLine;
 let offlineQueue = [];
 let localSalesCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
 
 function checkSupabaseConnection() {
-    return typeof window.supabase !== 'undefined' && 
-           window.supabase && 
-           isOnline;
+    return typeof window.supabase !== 'undefined' &&
+           window.supabase &&
+           salesIsOnline;
 }
 
 // ===== OFFLINE QUEUE =====
@@ -433,12 +433,12 @@ function downloadSalesCSV(sales, filename = 'satislar.csv') {
 // ===== ONLINE/OFFLINE EVENT LISTENERS =====
 
 window.addEventListener('online', () => {
-    isOnline = true;
+    salesIsOnline = true;
     syncSalesOfflineChanges();
 });
 
 window.addEventListener('offline', () => {
-    isOnline = false;
+    salesIsOnline = false;
 });
 
 // ===== INIT =====

@@ -16,16 +16,16 @@ const CATEGORIES = {
 let allProducts = [];
 let selectedCategory = 'all';
 let searchQuery = '';
-let isOnline = navigator.onLine;
+let productsIsOnline = navigator.onLine;
 let offlineQueue = [];
 let localProductCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
 
 function checkSupabaseConnection() {
-    return typeof window.supabase !== 'undefined' && 
-           window.supabase && 
-           isOnline;
+    return typeof window.supabase !== 'undefined' &&
+           window.supabase &&
+           productsIsOnline;
 }
 
 // ===== OFFLINE QUEUE =====
@@ -752,12 +752,12 @@ function findProductsByName(name) {
 // ===== ONLINE/OFFLINE EVENT LISTENERS =====
 
 window.addEventListener('online', () => {
-    isOnline = true;
+    productsIsOnline = true;
     syncOfflineChanges();
 });
 
 window.addEventListener('offline', () => {
-    isOnline = false;
+    productsIsOnline = false;
     showToast('Offline moda geçildi', 'info');
 });
 
