@@ -58,8 +58,16 @@ window.addEventListener('offline', () => {
  * Kullanıcı girişi (Supabase Auth)
  */
 async function login(username, password) {
-    // Önce localStorage'ta kontrol et (fallback)
-    const localUsers = Storage.get('kahvepos_users');
+    // Varsayılan kullanıcıları kontrol et ve localStorage'a ekle
+    let localUsers = Storage.get('kahvepos_users');
+    if (!localUsers || localUsers.length === 0) {
+        // Varsayılan kullanıcıları localStorage'a yükle
+        localUsers = DEFAULT_USERS;
+        Storage.set('kahvepos_users', localUsers);
+        console.log('📦 Varsayılan kullanıcılar localStorage\'a yüklendi');
+    }
+    
+    // localStorage'ta kontrol et
     if (localUsers) {
         const localUser = localUsers.find(u => u.username === username && u.password === password);
         if (localUser) {
