@@ -1,19 +1,19 @@
 /**
  * Users.js - Supabase Entegrasyonlu
  * Kullanıcı yönetimi modülü - Hybrid Mode
- * 
+ *
  * WORKFLOW:
- * - Online: Supabase'den veri alır, localStorage cache'ler
+ * - Online: Supabase Auth ile giriş yapar, profil Supabase'den gelir
  * - Offline: localStorage'tan çalışır, queue'ya ekler
  * - Sync: Online olunca değişiklikleri Supabase'e gönderir
  */
 
-// Varsayılan kullanıcılar (localStorage fallback için)
+// Varsayılan kullanıcılar (localStorage fallback ve ilk kurulum için)
 const DEFAULT_USERS = [
     {
         id: 'admin_001',
         username: 'canakboyraz',
-        password: '09081993', // Not: Supabase'de hash'li şifre kullanılır
+        password: '09081993',
         role: 'admin',
         canManageUsers: true,
         canManageProducts: true,
@@ -67,36 +67,15 @@ async function login(username, password) {
         console.log('📦 Varsayılan kullanıcılar localStorage\'a yüklendi');
     }
     
-    // localStorage'ta kontrol et
-    if (localUsers) {
-        const localUser = localUsers.find(u => u.username === username && u.password === password);
-        if (localUser) {
-            currentUser = localUser;
-            sessionStorage.setItem('kahvepos_current_user', JSON.stringify(localUser));
-            sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
-            
-            // Online ise Supabase'e de bağlanmayı dene
-            if (usersIsOnline && window.SupabaseService) {
-                try {
-                    // Supabase'de email olarak username@local.temp kullan (geçici)
-                    const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
-                    if (result.success) {
-                        console.log('✅ Supabase login başarılı');
-                    }
-                } catch (error) {
-                    console.log('⚠️ Supabase login başarısız, localStorage kullanılıyor');
-                }
-            }
-            
-            return { success: true, message: 'Giriş başarılı', user: localUser };
-        }
-    }
-    
-    // Supabase Auth ile dene
+    // STRATEJÝ 1: Önce Supabase Auth'u dene (online ise)
     if (usersIsOnline && window.SupabaseService) {
         try {
-            const result = await SupabaseService.login(`${username}@kahvepos.local`, password);
-            if (result.success) {
+            // Gerçek Supabase kullanıcıları email ile giriş yapar
+            // Eğer '@' yoksa username@kahvepos.com formatına çevir
+            const email = username.includes('@') ? username : `${username}@kahvepos.com`;
+            const result = await SupabaseService.login(email, password);
+            
+            if (result.success && result.user) {
                 currentUser = result.user;
                 sessionStorage.setItem('kahvepos_current_user', JSON.stringify(result.user));
                 sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
@@ -104,11 +83,28 @@ async function login(username, password) {
                 // Local cache'e güncelle
                 updateLocalUserCache(result.user);
                 
+                console.log('✅ Supabase Auth ile giriş başarılı');
                 return { success: true, message: 'Giriş başarılı', user: result.user };
             }
         } catch (error) {
-            console.log('⚠️ Supabase login hatası:', error.message);
+            console.log('⚠️ Supabase Auth denemesi başarısız, localStorage deneniyor...', error.message);
         }
+    }
+    
+    // STRATEJÝ 2: Supabase başarısız veya offline ise localStorage'ı kullan
+    const localUser = localUsers.find(u => {
+        // Şifre base64 encoded ise decode et
+        const decodedPassword = u.password.length > 20 ? atob(u.password) : u.password;
+        return u.username === username && (u.password === password || decodedPassword === password);
+    });
+    
+    if (localUser) {
+        currentUser = localUser;
+        sessionStorage.setItem('kahvepos_current_user', JSON.stringify(localUser));
+        sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
+        
+        console.log('✅ LocalStorage ile giriş başarılı (Offline mod)');
+        return { success: true, message: 'Giriş başarılı (Offline)', user: localUser };
     }
     
     return { success: false, message: 'Kullanıcı adı veya şifre hatalı' };

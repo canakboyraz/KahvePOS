@@ -155,10 +155,13 @@ async function loadProducts() {
                     id: p.id,
                     name: p.name,
                     category: p.category,
-                    costPrice: p.cost_price,
-                    salePrice: p.sale_price,
+                    // cost_price yoksa cost kullan, yoksa 0
+                    costPrice: p.cost_price ?? p.cost ?? 0,
+                    // sale_price yoksa price kullan, yoksa 0
+                    salePrice: p.sale_price ?? p.price ?? 0,
                     icon: p.icon || '☕',
-                    active: p.active !== false,
+                    // active yoksa is_active kullan, yoksa true
+                    active: p.active ?? p.is_active ?? true,
                     createdAt: p.created_at,
                     updatedAt: p.updated_at
                 }));
