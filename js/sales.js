@@ -216,6 +216,7 @@ async function addSale(saleData) {
         profit: saleData.profit || 0,
         discountAmount: saleData.discountAmount || 0,
         paymentMethod: saleData.paymentMethod || 'cash',
+        paymentData: saleData.paymentData || null,
         createdBy: saleData.createdBy || getCurrentUserId(),
         createdAt: saleData.createdAt || new Date().toISOString()
     };
@@ -224,29 +225,59 @@ async function addSale(saleData) {
     localSalesCache.unshift(newSale);
     Storage.saveSales(localSalesCache);
 
+    // Supabase'e kaydet
+    console.log('🔍 Supabase bağlantı kontrolü:', {
+        supabaseDefined: typeof window.supabase !== 'undefined',
+        supabaseExists: !!window.supabase,
+        isOnline: salesIsOnline,
+        checkResult: checkSupabaseConnection()
+    });
+
     if (checkSupabaseConnection()) {
         try {
-            const { error } = await window.supabase
-                .from('sales')
-                .insert({
-                    id: newSale.id,
-                    total_amount: newSale.totalAmount,
-                    total_cost: newSale.totalCost,
-                    profit: newSale.profit,
-                    discount_amount: newSale.discountAmount,
-                    payment_method: newSale.paymentMethod,
-                    items: newSale.items,
-                    created_by: newSale.createdBy,
-                    created_at: newSale.createdAt
-                });
+            // payment_method: Schema'da JSONB - uyumlu format oluştur
+            let paymentMethodJsonb;
+            if (newSale.paymentData && newSale.paymentData.payments) {
+                // Detaylı ödeme bilgisi varsa onu kullan
+                paymentMethodJsonb = newSale.paymentData.payments;
+            } else if (typeof newSale.paymentMethod === 'string') {
+                // String ise JSONB array formatına çevir
+                paymentMethodJsonb = [{ method: newSale.paymentMethod, amount: newSale.totalAmount }];
+            } else {
+                paymentMethodJsonb = newSale.paymentMethod;
+            }
 
-            if (error) throw error;
-            console.log('Satış Supabase\'e kaydedildi');
+            const insertData = {
+                id: newSale.id,
+                total_amount: newSale.totalAmount,
+                total_cost: newSale.totalCost,
+                profit: newSale.profit,
+                discount_amount: newSale.discountAmount,
+                payment_method: paymentMethodJsonb,
+                payment_method_text: typeof newSale.paymentMethod === 'string' ? newSale.paymentMethod : (newSale.paymentMethod?.[0]?.method || 'cash'),
+                items: newSale.items,
+                created_by: newSale.createdBy,
+                created_at: newSale.createdAt
+            };
+
+            console.log('📤 Supabase INSERT data:', insertData);
+
+            const { data, error } = await window.supabase
+                .from('sales')
+                .insert(insertData)
+                .select();
+
+            if (error) {
+                console.error('❌ Supabase INSERT error:', error);
+                throw error;
+            }
+            console.log('✅ Satış Supabase\'e kaydedildi:', data);
         } catch (error) {
-            console.error('Supabase satış ekleme hatası:', error);
+            console.error('❌ Supabase satış ekleme hatası:', error.message || error);
             addSalesToOfflineQueue('add', newSale);
         }
     } else {
+        console.warn('⚠️ Supabase bağlantısı yok, offline kuyruğa ekleniyor');
         addSalesToOfflineQueue('add', newSale);
     }
 

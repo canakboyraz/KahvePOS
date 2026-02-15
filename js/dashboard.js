@@ -8,16 +8,16 @@ let categoryChart = null;
 let hourlySalesChart = null;
 
 // Dashboard verilerini yükle
-function loadDashboard() {
-    updateDashboardStats();
-    loadWeeklySalesChart();
-    loadCategoryChart();
-    loadTopProducts();
+async function loadDashboard() {
+    await updateDashboardStats();
+    await loadWeeklySalesChart();
+    await loadCategoryChart();
+    await loadTopProducts();
 }
 
 // Dashboard istatistiklerini güncelle
-function updateDashboardStats() {
-    const todaySales = getTodaySales();
+async function updateDashboardStats() {
+    const todaySales = await getTodaySales();
     const summary = calculateDailySummary(todaySales);
     
     // Bugünün satışları
@@ -31,7 +31,7 @@ function updateDashboardStats() {
     // Dünkü satışlarla karşılaştırma (yüzde değişim)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdaySales = getSalesByDate(yesterday);
+    const yesterdaySales = await getSalesByDate(yesterday);
     const yesterdaySummary = calculateDailySummary(yesterdaySales);
     
     if (yesterdaySummary.totalSales > 0) {
@@ -50,7 +50,7 @@ function updateDashboardStats() {
 }
 
 // Haftalık satış grafiği
-function loadWeeklySalesChart() {
+async function loadWeeklySalesChart() {
     const ctx = document.getElementById('weekly-sales-chart');
     if (!ctx) return;
     
@@ -63,7 +63,7 @@ function loadWeeklySalesChart() {
         date.setDate(date.getDate() - i);
         last7Days.push(formatDateDisplay(date));
         
-        const daySales = getSalesByDate(date);
+        const daySales = await getSalesByDate(date);
         const summary = calculateDailySummary(daySales);
         salesData.push(summary.totalSales);
         profitData.push(summary.totalProfit);
@@ -114,11 +114,11 @@ function loadWeeklySalesChart() {
 }
 
 // Kategori dağılımı grafiği
-function loadCategoryChart() {
+async function loadCategoryChart() {
     const ctx = document.getElementById('category-chart');
     if (!ctx) return;
     
-    const todaySales = getTodaySales();
+    const todaySales = await getTodaySales();
     const categorySales = {};
     
     todaySales.forEach(sale => {
@@ -172,11 +172,11 @@ function loadCategoryChart() {
 }
 
 // En çok satan ürünler
-function loadTopProducts(topContainer = 'top-products-list') {
+async function loadTopProducts(topContainer = 'top-products-list') {
     const container = document.getElementById(topContainer);
     if (!container) return;
     
-    const allSalesData = getAllSales();
+    const allSalesData = await getAllSales();
     const productSales = {};
     
     allSalesData.forEach(sale => {
@@ -222,11 +222,11 @@ function loadTopProducts(topContainer = 'top-products-list') {
 }
 
 // Rapor sayfası için saatlik satış grafiği
-function loadHourlySalesChart(date) {
+async function loadHourlySalesChart(date) {
     const ctx = document.getElementById('hourly-sales-chart');
     if (!ctx) return;
     
-    const sales = getSalesByDate(date);
+    const sales = await getSalesByDate(date);
     const hourlyData = Array(24).fill(0);
     
     sales.forEach(sale => {
@@ -270,11 +270,11 @@ function loadHourlySalesChart(date) {
 }
 
 // Top 10 ürün listesi (Rapor sayfası için)
-function loadTop10Products(date) {
+async function loadTop10Products(date) {
     const container = document.getElementById('top10-list');
     if (!container) return;
     
-    const sales = getSalesByDate(date);
+    const sales = await getSalesByDate(date);
     const productSales = {};
     
     sales.forEach(sale => {
@@ -322,9 +322,9 @@ function loadTop10Products(date) {
 }
 
 // Dashboard'ı yenile (dışarıdan çağrılabilir)
-function refreshDashboard() {
+async function refreshDashboard() {
     if (document.getElementById('dashboard-page').classList.contains('active')) {
-        loadDashboard();
+        await loadDashboard();
     }
 }
 

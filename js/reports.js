@@ -7,11 +7,11 @@
 let currentReportPeriod = 'today';
 
 // Raporu yükle
-function loadReport() {
+async function loadReport() {
     const dateInput = document.getElementById('report-date');
     const selectedDate = dateInput ? dateInput.value : new Date();
     
-    const sales = getSalesByDate(selectedDate);
+    const sales = await getSalesByDate(selectedDate);
     const summary = calculateDailySummary(sales);
     const productSales = calculateProductSales(sales);
     
@@ -27,10 +27,10 @@ function loadReport() {
     if (orderCountEl) orderCountEl.textContent = summary.orderCount;
     
     // Grafiği yükle
-    loadHourlySalesChart(selectedDate);
+    await loadHourlySalesChart(selectedDate);
     
     // Top 10 listesi
-    loadTop10Products(selectedDate);
+    await loadTop10Products(selectedDate);
     
     // Ürün bazlı satış tablosu
     renderProductSalesTable(productSales);
@@ -67,7 +67,7 @@ function loadReport() {
 }
 
 // Dönem seçici
-function setReportPeriod(period) {
+async function setReportPeriod(period) {
     currentReportPeriod = period;
     
     // Butonları güncelle
@@ -88,26 +88,26 @@ function setReportPeriod(period) {
     switch (period) {
         case 'today':
             dateInput.value = `${year}-${month}-${day}`;
-            loadReport();
+            await loadReport();
             break;
             
         case 'week':
             // Bu haftanın satışlarını topla
-            const weekSales = getLastNDaysSales(7);
-            loadWeekReport(weekSales);
+            const weekSales = await getLastNDaysSales(7);
+            await loadWeekReport(weekSales);
             break;
             
         case 'month':
             // Bu ayın satışlarını topla
             const monthStart = new Date(year, today.getMonth(), 1);
-            const monthSales = getSalesByDateRange(monthStart, today);
-            loadMonthReport(monthSales);
+            const monthSales = await getSalesByDateRange(monthStart, today);
+            await loadMonthReport(monthSales);
             break;
     }
 }
 
 // Haftalık rapor
-function loadWeekReport(sales) {
+async function loadWeekReport(sales) {
     const summary = calculateDailySummary(sales);
     const productSales = calculateProductSales(sales);
     
@@ -115,14 +115,14 @@ function loadWeekReport(sales) {
     renderProductSalesTable(productSales);
     renderOrdersTable(sales);
     renderUserSalesTable(sales);
-    loadTop10Products(null, sales);
+    await loadTop10Products(null, sales);
     
     // Haftalık grafik
     loadWeeklyChart(sales);
 }
 
 // Aylık rapor
-function loadMonthReport(sales) {
+async function loadMonthReport(sales) {
     const summary = calculateDailySummary(sales);
     const productSales = calculateProductSales(sales);
     
@@ -130,7 +130,7 @@ function loadMonthReport(sales) {
     renderProductSalesTable(productSales);
     renderOrdersTable(sales);
     renderUserSalesTable(sales);
-    loadTop10Products(null, sales);
+    await loadTop10Products(null, sales);
     
     // Aylık grafik
     loadMonthlyChart(sales);
@@ -493,22 +493,22 @@ function calculateUserSalesStats(sales) {
 }
 
 // Raporu yazdır
-function printReport() {
+async function printReport() {
     const dateInput = document.getElementById('report-date');
     const selectedDate = dateInput ? dateInput.value : new Date();
     
     let sales, dateDisplay;
     
     if (currentReportPeriod === 'today') {
-        sales = getSalesByDate(selectedDate);
+        sales = await getSalesByDate(selectedDate);
         dateDisplay = formatDateDisplay(selectedDate);
     } else if (currentReportPeriod === 'week') {
-        sales = getLastNDaysSales(7);
+        sales = await getLastNDaysSales(7);
         dateDisplay = 'Son 7 Gün';
     } else {
         const today = new Date();
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        sales = getSalesByDateRange(monthStart, today);
+        sales = await getSalesByDateRange(monthStart, today);
         dateDisplay = 'Bu Ay';
     }
     
