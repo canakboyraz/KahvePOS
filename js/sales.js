@@ -16,6 +16,102 @@ function checkSupabaseConnection() {
            salesIsOnline;
 }
 
+
+function isValidUuid(value) {
+    return typeof value === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getCurrentSupabaseUserId() {
+    try {
+        if (window.SupabaseService?.currentUser?.id && isValidUuid(window.SupabaseService.currentUser.id)) {
+            return window.SupabaseService.currentUser.id;
+        }
+    } catch (e) {}
+
+    try {
+        const sessionUser = sessionStorage.getItem('kahvepos_current_user');
+        if (sessionUser) {
+            const user = JSON.parse(sessionUser);
+            if (user?.id && isValidUuid(user.id)) return user.id;
+        }
+    } catch (e) {}
+
+    return null;
+}
+
+function normalizePaymentMethod(newSale) {
+    if (newSale.paymentData && newSale.paymentData.payments) {
+        return newSale.paymentData.payments;
+    }
+    if (typeof newSale.paymentMethod === 'string') {
+        return [{ method: newSale.paymentMethod, amount: newSale.totalAmount }];
+    }
+    return newSale.paymentMethod || [];
+}
+
+function buildSupabaseInsertPayload(newSale, options = {}) {
+    const paymentMethodJsonb = normalizePaymentMethod(newSale);
+    const userId = getCurrentSupabaseUserId();
+    const createdAt = newSale.createdAt || new Date().toISOString();
+    const basePayload = {
+        total_amount: newSale.totalAmount || 0,
+        total_cost: newSale.totalCost || 0,
+        payment_method: paymentMethodJsonb,
+        items: newSale.items || [],
+        created_at: createdAt,
+        sale_date: formatDate(createdAt)
+    };
+
+    if (options.includeId && newSale.id) {
+        basePayload.id = newSale.id;
+    }
+    if (userId) {
+        basePayload.user_id = userId;
+    }
+
+    if (options.minimalSchema) {
+        return basePayload;
+    }
+
+    return {
+        ...basePayload,
+        profit: newSale.profit || 0,
+        discount_amount: newSale.discountAmount || 0,
+        payment_method_text: typeof newSale.paymentMethod === 'string'
+            ? newSale.paymentMethod
+            : (newSale.paymentMethod?.[0]?.method || 'cash'),
+        created_by: newSale.createdBy || 'unknown'
+    };
+}
+
+async function insertSaleToSupabase(newSale, options = {}) {
+    const extendedPayload = buildSupabaseInsertPayload(newSale, {
+        includeId: options.includeId,
+        minimalSchema: false
+    });
+
+    const { data, error } = await window.supabase
+        .from('sales')
+        .insert(extendedPayload)
+        .select();
+
+    // 001 schema gibi eski kurulumlarda olmayan kolonlara fallback yap
+    if (error && (error.code === '42703' || /column .* does not exist/i.test(error.message || ''))) {
+        const minimalPayload = buildSupabaseInsertPayload(newSale, {
+            includeId: options.includeId,
+            minimalSchema: true
+        });
+
+        return await window.supabase
+            .from('sales')
+            .insert(minimalPayload)
+            .select();
+    }
+
+    return { data, error };
+}
+
 // ===== OFFLINE QUEUE =====
 
 function loadSalesOfflineQueue() {
@@ -49,69 +145,62 @@ async function syncSalesOfflineChanges() {
         return;
     }
 
+    const initialQueueLength = salesOfflineQueue.length;
     const failedItems = [];
 
     for (const item of salesOfflineQueue) {
         try {
             switch (item.operation) {
                 case 'add':
-                    // Supabase'de ID varsa güncelle, yoksa ekle
-                    const existingCheck = await window.supabase
-                        .from('sales')
-                        .select('id')
-                        .eq('id', item.data.id)
-                        .single();
-                    
-                    if (existingCheck.data) {
-                        // Zaten var, güncelle
-                        await window.supabase
+                    if (isValidUuid(item.data?.id)) {
+                        const existingCheck = await window.supabase
                             .from('sales')
-                            .update({
-                                total_amount: item.data.totalAmount,
-                                total_cost: item.data.totalCost,
-                                profit: item.data.profit,
-                                discount_amount: item.data.discountAmount || 0,
-                                payment_method: item.data.paymentMethod,
-                                items: item.data.items,
-                                created_by: item.data.createdBy,
-                                synced_at: new Date().toISOString()
-                            })
-                            .eq('id', item.data.id);
-                    } else {
-                        // Yeni ekle
-                        await window.supabase
-                            .from('sales')
-                            .insert({
-                                id: item.data.id,
-                                total_amount: item.data.totalAmount,
-                                total_cost: item.data.totalCost,
-                                profit: item.data.profit,
-                                discount_amount: item.data.discountAmount || 0,
-                                payment_method: item.data.paymentMethod,
-                                items: item.data.items,
-                                created_by: item.data.createdBy,
-                                created_at: item.data.createdAt
-                            });
+                            .select('id')
+                            .eq('id', item.data.id)
+                            .maybeSingle();
+
+                        if (existingCheck.error) throw existingCheck.error;
+
+                        if (existingCheck.data) {
+                            const updatePayload = {
+                                total_amount: item.data.totalAmount || 0,
+                                total_cost: item.data.totalCost || 0,
+                                payment_method: normalizePaymentMethod(item.data),
+                                items: item.data.items || []
+                            };
+
+                            const { error: updateError } = await window.supabase
+                                .from('sales')
+                                .update(updatePayload)
+                                .eq('id', item.data.id);
+
+                            if (updateError) throw updateError;
+                            break;
+                        }
                     }
+
+                    const insertResult = await insertSaleToSupabase(item.data, { includeId: true });
+                    if (insertResult.error) throw insertResult.error;
                     break;
                 case 'delete':
+                    if (!item.data?.id) break;
                     await window.supabase
                         .from('sales')
                         .delete()
-                        .eq('id', item.data.id);
+                        .or(`id.eq.${item.data.id},id.eq.${item.data.supabaseId || ''}`);
                     break;
             }
         } catch (error) {
-            console.error('Sales sync hatası:', error);
+            console.error('Sales sync hatasi:', error);
             failedItems.push(item);
         }
     }
 
     salesOfflineQueue = failedItems;
     saveSalesOfflineQueue();
-    
-    if (failedItems.length === 0 && salesOfflineQueue.length !== failedItems.length) {
-        showToast('Satış verileri senkronize edildi', 'success');
+
+    if (failedItems.length === 0 && initialQueueLength > 0) {
+        showToast('Satis verileri senkronize edildi', 'success');
     }
 }
 
@@ -227,7 +316,7 @@ async function addSale(saleData) {
     Storage.saveSales(localSalesCache);
 
     // Supabase'e kaydet
-    console.log('🔍 Supabase bağlantı kontrolü:', {
+    console.log('Supabase baglanti kontrolu:', {
         supabaseDefined: typeof window.supabase !== 'undefined',
         supabaseExists: !!window.supabase,
         isOnline: salesIsOnline,
@@ -236,59 +325,29 @@ async function addSale(saleData) {
 
     if (checkSupabaseConnection()) {
         try {
-            // payment_method: Schema'da JSONB - uyumlu format oluştur
-            let paymentMethodJsonb;
-            if (newSale.paymentData && newSale.paymentData.payments) {
-                paymentMethodJsonb = newSale.paymentData.payments;
-            } else if (typeof newSale.paymentMethod === 'string') {
-                paymentMethodJsonb = [{ method: newSale.paymentMethod, amount: newSale.totalAmount }];
-            } else {
-                paymentMethodJsonb = newSale.paymentMethod;
-            }
-
-            // ID'yi Supabase'e GÖNDERMİYORUZ - PostgreSQL gen_random_uuid() ile üretsin
-            // Böylece UUID format hatası oluşmaz
-            const insertData = {
-                total_amount: newSale.totalAmount,
-                total_cost: newSale.totalCost,
-                profit: newSale.profit,
-                discount_amount: newSale.discountAmount,
-                payment_method: paymentMethodJsonb,
-                payment_method_text: typeof newSale.paymentMethod === 'string' ? newSale.paymentMethod : (newSale.paymentMethod?.[0]?.method || 'cash'),
-                items: newSale.items,
-                created_by: newSale.createdBy,
-                created_at: newSale.createdAt
-            };
-
-            console.log('📤 Supabase INSERT data:', insertData);
-
-            const { data, error } = await window.supabase
-                .from('sales')
-                .insert(insertData)
-                .select();
+            const { data, error } = await insertSaleToSupabase(newSale, { includeId: false });
 
             if (error) {
-                console.error('❌ Supabase INSERT error:', error);
+                console.error('Supabase INSERT error:', error);
                 throw error;
             }
-            
-            // Supabase'in ürettiği UUID'yi localStorage'a da kaydet
+
+            // Supabase'in urettigi UUID'yi localStorage'a da kaydet
             if (data && data[0]) {
                 newSale.supabaseId = data[0].id;
-                // localStorage'daki kaydı güncelle
                 const cacheIndex = localSalesCache.findIndex(s => s.id === localId);
                 if (cacheIndex !== -1) {
                     localSalesCache[cacheIndex].supabaseId = data[0].id;
                     Storage.saveSales(localSalesCache);
                 }
             }
-            console.log('✅ Satış Supabase\'e kaydedildi:', data);
+            console.log("Satis Supabase'e kaydedildi:", data);
         } catch (error) {
-            console.error('❌ Supabase satış ekleme hatası:', error.message || error);
+            console.error('Supabase satis ekleme hatasi:', error.message || error);
             addSalesToOfflineQueue('add', newSale);
         }
     } else {
-        console.warn('⚠️ Supabase bağlantısı yok, offline kuyruğa ekleniyor');
+        console.warn('Supabase baglantisi yok, offline kuyruga ekleniyor');
         addSalesToOfflineQueue('add', newSale);
     }
 
@@ -306,15 +365,26 @@ function generateSaleUUID() {
 
 // Mevcut kullanıcı ID'sini al
 function getCurrentUserId() {
-    const session = localStorage.getItem('currentUser');
+    const session = sessionStorage.getItem('kahvepos_current_user');
     if (session) {
         try {
             const user = JSON.parse(session);
-            return user.id || user.username || 'unknown';
+            return user.username || user.id || 'unknown';
         } catch (e) {
             return 'unknown';
         }
     }
+
+    const legacySession = localStorage.getItem('currentUser');
+    if (legacySession) {
+        try {
+            const user = JSON.parse(legacySession);
+            return user.username || user.id || 'unknown';
+        } catch (e) {
+            return 'unknown';
+        }
+    }
+
     return 'unknown';
 }
 
