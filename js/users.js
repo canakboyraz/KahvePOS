@@ -188,10 +188,23 @@ async function getAllUsers() {
                     canViewReports: u.permissions?.reports !== false,
                     createdAt: u.created_at
                 }));
+
+                // Supabase'e henüz yazılamayan local kullanıcıları kaybetme
+                const mergedUsers = [...formattedUsers];
+                const knownUsernames = new Set(
+                    formattedUsers.map(u => (u.username || '').toLowerCase())
+                );
+
+                localUsers.forEach((localUser) => {
+                    const username = (localUser.username || '').toLowerCase();
+                    if (!knownUsernames.has(username)) {
+                        mergedUsers.push(localUser);
+                    }
+                });
                 
                 // Local cache güncelle
-                Storage.set('kahvepos_users', formattedUsers);
-                return formattedUsers;
+                Storage.set('kahvepos_users', mergedUsers);
+                return mergedUsers;
             }
         } catch (error) {
             console.log('⚠️ Supabase kullanıcı yükleme hatası, localStorage kullanılıyor');
@@ -207,18 +220,19 @@ async function getAllUsers() {
 async function addUser(userData) {
     // Kullanıcı adı kontrolü
     const users = await getAllUsers();
-    if (users.find(u => u.username === userData.username)) {
+    const normalizedUsername = (userData.username || '').trim();
+    if (users.find(u => (u.username || '').toLowerCase() === normalizedUsername.toLowerCase())) {
         return { success: false, message: 'Bu kullanıcı adı zaten kullanılıyor' };
     }
     
     const newUser = {
         id: 'user_' + Date.now(),
-        username: userData.username,
+        username: normalizedUsername,
         password: userData.password,
         role: userData.role || 'barista',
-        canManageUsers: false,
-        canManageProducts: false,
-        canViewReports: true,
+        canManageUsers: userData.canManageUsers || false,
+        canManageProducts: userData.canManageProducts || false,
+        canViewReports: userData.canViewReports !== false,
         createdAt: new Date().toISOString()
     };
     
@@ -229,39 +243,49 @@ async function addUser(userData) {
     // Online ise Supabase'e de ekle
     if (usersIsOnline && window.SupabaseService) {
         try {
+            const authEmail = normalizedUsername.includes('@')
+                ? normalizedUsername
+                : `${normalizedUsername}@kahvepos.local`;
+
             // Supabase Auth'da kullanıcı oluştur
             const { data, error } = await window.supabase.auth.signUp({
-                email: `${userData.username}@kahvepos.local`,
+                email: authEmail,
                 password: userData.password,
                 options: {
                     data: {
-                        username: userData.username,
+                        username: normalizedUsername,
                         role: userData.role || 'barista'
                     }
                 }
             });
+
+            if (error) {
+                throw error;
+            }
             
-            if (!error && data.user) {
+            if (data.user) {
                 // Profil oluştur
                 const { error: profileError } = await window.supabase
                     .from('profiles')
                     .insert({
                         id: data.user.id,
-                        username: userData.username,
+                        username: normalizedUsername,
                         role: userData.role || 'barista',
                         permissions: {
-                            products: false,
-                            reports: true,
-                            users: false
+                            products: userData.canManageProducts || false,
+                            reports: userData.canViewReports !== false,
+                            users: userData.canManageUsers || false
                         }
                     });
-                
-                if (!profileError) {
-                    // Local ID'yi Supabase ID ile güncelle
-                    newUser.id = data.user.id;
-                    Storage.set('kahvepos_users', users);
-                    console.log('✅ Kullanıcı Supabase\'e eklendi');
+
+                if (profileError) {
+                    throw profileError;
                 }
+                
+                // Local ID'yi Supabase ID ile güncelle
+                newUser.id = data.user.id;
+                Storage.set('kahvepos_users', users);
+                console.log('✅ Kullanıcı Supabase\'e eklendi');
             }
         } catch (error) {
             console.log('⚠️ Supabase\'e eklenemedi, sadece locale kaydedildi:', error.message);
