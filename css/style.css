@@ -2749,6 +2749,39 @@ body {
     line-height: 1.4;
 }
 
+.user-insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.user-insight-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+}
+
+.user-insight-title {
+    color: var(--color-text-light);
+    font-size: 0.8rem;
+}
+
+.user-insight-value {
+    color: var(--color-text);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+}
+
+.user-insight-detail {
+    color: var(--color-text-light);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    line-height: 1.35;
+}
+
 #user-sales-table tr:hover {
     background: var(--color-bg);
 }

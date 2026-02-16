@@ -6,6 +6,19 @@
 
 let currentReportPeriod = 'today';
 
+function formatCurrency(value) {
+    return `${(Number(value) || 0).toFixed(2)} TL`;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Raporu yükle
 async function loadReport() {
     const dateInput = document.getElementById('report-date');
@@ -347,84 +360,54 @@ function renderOrdersTable(sales) {
 // Kullanıcı bazlı satış tablosunu oluştur
 function renderUserSalesTable(sales) {
     const tableBody = document.getElementById('user-sales-table');
+    const insightContainer = document.getElementById('user-sales-insights');
     if (!tableBody) return;
-    
+
     if (sales.length === 0) {
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" style="text-align: center; color: var(--color-text-light);">
-                    Satış kaydı bulunmuyor
+                    Satis kaydi bulunmuyor
                 </td>
             </tr>
         `;
+        if (insightContainer) insightContainer.innerHTML = '';
         return;
     }
-    
-    // Kullanıcı bazlı satışları grupla
-    const userSales = {};
-    
-    sales.forEach(sale => {
-        const userName = sale.createdBy || 'Bilinmeyen';
-        
-        if (!userSales[userName]) {
-            userSales[userName] = {
-                userName: userName,
-                orderCount: 0,
-                totalSales: 0,
-                totalProfit: 0,
-                products: {}
-            };
-        }
-        
-        userSales[userName].orderCount++;
-        userSales[userName].totalSales += sale.totalAmount || 0;
-        
-        // Her ürünü kaydet
-        if (sale.items) {
-            sale.items.forEach(item => {
-                const productKey = item.productId || item.productName;
-                if (!userSales[userName].products[productKey]) {
-                    userSales[userName].products[productKey] = {
-                        name: item.productName,
-                        icon: item.productIcon || '📦',
-                        quantity: 0,
-                        total: 0
-                    };
-                }
-                userSales[userName].products[productKey].quantity += item.quantity;
-                userSales[userName].products[productKey].total += item.price * item.quantity;
-            });
-        }
-        
-        // Kar hesapla
-        const saleCost = sale.items ? sale.items.reduce((sum, item) =>
-            sum + ((item.cost || 0) * item.quantity), 0) : 0;
-        userSales[userName].totalProfit += (sale.totalAmount || 0) - saleCost;
-    });
-    
-    // Array'e çevir ve satışa göre sırala (büyükten küçüğe)
-    const sortedUsers = Object.values(userSales).sort((a, b) => b.totalSales - a.totalSales);
-    
+
+    const sortedUsers = calculateUserSalesStats(sales);
+    const totalSales = sortedUsers.reduce((sum, user) => sum + user.totalSales, 0);
+    const totalOrders = sortedUsers.reduce((sum, user) => sum + user.orderCount, 0);
+
+    if (insightContainer) {
+        renderUserSalesInsights(sortedUsers, totalSales, totalOrders);
+    }
+
     tableBody.innerHTML = sortedUsers.map(user => {
-        // En çok satılan 3 ürünü göster
-        const topProducts = Object.values(user.products)
-            .sort((a, b) => b.quantity - a.quantity)
-            .slice(0, 3)
-            .map(p => `${p.icon} ${p.name} (${p.quantity})`)
+        const topProducts = user.topProducts
+            .map(p => `${p.icon} ${escapeHtml(p.name)} (${p.quantity})`)
             .join(', ');
-        
+
+        const paymentMix = user.topPaymentMethod
+            ? `${escapeHtml(user.topPaymentMethod.name)} %${user.topPaymentMethod.ratio.toFixed(0)}`
+            : '-';
+
         return `
             <tr>
                 <td>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="user-avatar-small">👤</span>
-                        <strong>${user.userName}</strong>
+                        <span class="user-avatar-small">U</span>
+                        <strong>${escapeHtml(user.userName)}</strong>
+                        <span class="user-performance-badge ${user.performanceLevel}">${user.performanceLabel}</span>
                     </div>
                 </td>
                 <td class="numeric">${user.orderCount}</td>
-                <td class="numeric">${user.totalSales.toFixed(2)} ₺</td>
-                <td class="numeric" style="color: var(--color-success);">${user.totalProfit.toFixed(2)} ₺</td>
+                <td class="numeric">${formatCurrency(user.totalSales)}</td>
+                <td class="numeric" style="color: var(--color-success);">${formatCurrency(user.totalProfit)}</td>
                 <td>
+                    <span class="products-summary">Ort. sepet: <strong>${formatCurrency(user.averageTicket)}</strong></span>
+                    <span class="products-summary">Ciro payi: <strong>%${user.salesShare.toFixed(1)}</strong> - En iyi saat: <strong>${user.peakHourLabel}</strong></span>
+                    <span class="products-summary">Odeme mix: <strong>${paymentMix}</strong></span>
                     <span class="products-summary">${topProducts || '-'}</span>
                 </td>
             </tr>
@@ -432,13 +415,13 @@ function renderUserSalesTable(sales) {
     }).join('');
 }
 
-// Kullanıcı bazlı satış hesaplama (detaylı)
 function calculateUserSalesStats(sales) {
     const userStats = {};
-    
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+
     sales.forEach(sale => {
         const userName = sale.createdBy || 'Bilinmeyen';
-        
+
         if (!userStats[userName]) {
             userStats[userName] = {
                 userName: userName,
@@ -446,53 +429,166 @@ function calculateUserSalesStats(sales) {
                 totalSales: 0,
                 totalCost: 0,
                 totalProfit: 0,
+                totalItems: 0,
+                maxOrder: 0,
                 products: {},
+                hourlySales: Array(24).fill(0),
                 paymentMethods: {}
             };
         }
-        
+
+        const saleTotal = sale.totalAmount || 0;
         userStats[userName].orderCount++;
-        userStats[userName].totalSales += sale.totalAmount || 0;
-        
-        // Ürün detayları
+        userStats[userName].totalSales += saleTotal;
+        userStats[userName].maxOrder = Math.max(userStats[userName].maxOrder, saleTotal);
+        userStats[userName].hourlySales[new Date(sale.createdAt).getHours()] += saleTotal;
+
         if (sale.items) {
             sale.items.forEach(item => {
                 const productKey = item.productId || item.productName;
+                const quantity = item.quantity || 0;
+                const unitPrice = item.unitPrice ?? item.price ?? 0;
+                const costPrice = item.costPrice ?? item.cost ?? 0;
+
                 if (!userStats[userName].products[productKey]) {
                     userStats[userName].products[productKey] = {
                         name: item.productName,
-                        icon: item.productIcon || '📦',
+                        icon: item.productIcon || 'U',
                         quantity: 0,
                         totalSales: 0,
                         totalCost: 0
                     };
                 }
-                userStats[userName].products[productKey].quantity += item.quantity;
-                userStats[userName].products[productKey].totalSales += item.price * item.quantity;
-                userStats[userName].products[productKey].totalCost += (item.cost || 0) * item.quantity;
+
+                userStats[userName].products[productKey].quantity += quantity;
+                userStats[userName].products[productKey].totalSales += unitPrice * quantity;
+                userStats[userName].products[productKey].totalCost += costPrice * quantity;
+                userStats[userName].totalItems += quantity;
             });
         }
-        
-        // Maliyet ve kar
-        const saleCost = sale.items ? sale.items.reduce((sum, item) =>
-            sum + ((item.cost || 0) * item.quantity), 0) : 0;
+
+        const saleCost = sale.totalCost ?? (sale.items ? sale.items.reduce((sum, item) => {
+            const costPrice = item.costPrice ?? item.cost ?? 0;
+            return sum + (costPrice * (item.quantity || 0));
+        }, 0) : 0);
+
         userStats[userName].totalCost += saleCost;
-        userStats[userName].totalProfit += (sale.totalAmount || 0) - saleCost;
-        
-        // Ödeme yöntemi
-        if (sale.paymentMethod) {
+        userStats[userName].totalProfit += (sale.profit ?? (saleTotal - saleCost));
+
+        if (sale.paymentData?.payments?.length) {
+            sale.paymentData.payments.forEach(payment => {
+                const method = payment.methodName || payment.method || 'Diger';
+                if (!userStats[userName].paymentMethods[method]) {
+                    userStats[userName].paymentMethods[method] = 0;
+                }
+                userStats[userName].paymentMethods[method] += payment.amount || 0;
+            });
+        } else if (sale.paymentMethod) {
             const method = sale.paymentMethod;
             if (!userStats[userName].paymentMethods[method]) {
                 userStats[userName].paymentMethods[method] = 0;
             }
-            userStats[userName].paymentMethods[method] += sale.totalAmount || 0;
+            userStats[userName].paymentMethods[method] += saleTotal;
         }
     });
-    
-    return Object.values(userStats).sort((a, b) => b.totalSales - a.totalSales);
+
+    return Object.values(userStats)
+        .map(user => {
+            const topProducts = Object.values(user.products)
+                .sort((a, b) => b.quantity - a.quantity)
+                .slice(0, 3);
+
+            const paymentEntries = Object.entries(user.paymentMethods).sort((a, b) => b[1] - a[1]);
+            const topPaymentMethod = paymentEntries.length
+                ? {
+                    name: paymentEntries[0][0],
+                    ratio: user.totalSales > 0 ? (paymentEntries[0][1] / user.totalSales) * 100 : 0
+                }
+                : null;
+
+            const peakHourIndex = user.hourlySales.reduce((maxIdx, amount, idx, arr) =>
+                amount > arr[maxIdx] ? idx : maxIdx, 0
+            );
+
+            const salesShare = totalRevenue > 0 ? (user.totalSales / totalRevenue) * 100 : 0;
+            const averageTicket = user.orderCount > 0 ? user.totalSales / user.orderCount : 0;
+            const score = (salesShare * 0.6) + (averageTicket * 0.4 / 10);
+
+            let performanceLevel = 'medium';
+            let performanceLabel = 'Stabil';
+            if (score >= 40) {
+                performanceLevel = 'top';
+                performanceLabel = 'Lider';
+            } else if (score >= 20) {
+                performanceLevel = 'high';
+                performanceLabel = 'Yuksek';
+            }
+
+            return {
+                ...user,
+                topProducts,
+                topPaymentMethod,
+                averageTicket,
+                salesShare,
+                performanceLevel,
+                performanceLabel,
+                peakHourLabel: `${String(peakHourIndex).padStart(2, '0')}:00`
+            };
+        })
+        .sort((a, b) => b.totalSales - a.totalSales);
 }
 
-// Raporu yazdır
+function renderUserSalesInsights(userStats, totalSales, totalOrders) {
+    const container = document.getElementById('user-sales-insights');
+    if (!container) return;
+
+    if (!userStats.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const topRevenue = [...userStats].sort((a, b) => b.totalSales - a.totalSales)[0];
+    const topProfit = [...userStats].sort((a, b) => b.totalProfit - a.totalProfit)[0];
+    const topOrders = [...userStats].sort((a, b) => b.orderCount - a.orderCount)[0];
+    const topAvgTicket = [...userStats].sort((a, b) => b.averageTicket - a.averageTicket)[0];
+
+    const cards = [
+        {
+            title: 'Ciro Lideri',
+            value: escapeHtml(topRevenue.userName),
+            detail: `${formatCurrency(topRevenue.totalSales)} - %${topRevenue.salesShare.toFixed(1)} pay`
+        },
+        {
+            title: 'Kar Lideri',
+            value: escapeHtml(topProfit.userName),
+            detail: `${formatCurrency(topProfit.totalProfit)} net kar`
+        },
+        {
+            title: 'Siparis Lideri',
+            value: escapeHtml(topOrders.userName),
+            detail: `${topOrders.orderCount} siparis - Ort. ${formatCurrency(topOrders.averageTicket)}`
+        },
+        {
+            title: 'En Yuksek Ortalama Sepet',
+            value: escapeHtml(topAvgTicket.userName),
+            detail: `${formatCurrency(topAvgTicket.averageTicket)} - Maks ${formatCurrency(topAvgTicket.maxOrder)}`
+        },
+        {
+            title: 'Takim Ozeti',
+            value: `${userStats.length} aktif kullanici`,
+            detail: `${formatCurrency(totalSales)} toplam ciro - ${totalOrders} siparis`
+        }
+    ];
+
+    container.innerHTML = cards.map(card => `
+        <div class="user-insight-card">
+            <div class="user-insight-title">${card.title}</div>
+            <div class="user-insight-value">${card.value}</div>
+            <div class="user-insight-detail">${card.detail}</div>
+        </div>
+    `).join('');
+}
+
 async function printReport() {
     const dateInput = document.getElementById('report-date');
     const selectedDate = dateInput ? dateInput.value : new Date();
