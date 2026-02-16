@@ -208,8 +208,9 @@ async function getTodaySales() {
 // ===== SATIŞ EKLEME =====
 
 async function addSale(saleData) {
+    const localId = saleData.id || generateSaleUUID();
     const newSale = {
-        id: saleData.id || generateSaleUUID(),
+        id: localId,
         items: saleData.items || [],
         totalAmount: saleData.totalAmount || 0,
         totalCost: saleData.totalCost || 0,
@@ -221,7 +222,7 @@ async function addSale(saleData) {
         createdAt: saleData.createdAt || new Date().toISOString()
     };
 
-    // Local storage'a ekle
+    // Local storage'a ekle (her zaman)
     localSalesCache.unshift(newSale);
     Storage.saveSales(localSalesCache);
 
@@ -238,17 +239,16 @@ async function addSale(saleData) {
             // payment_method: Schema'da JSONB - uyumlu format oluştur
             let paymentMethodJsonb;
             if (newSale.paymentData && newSale.paymentData.payments) {
-                // Detaylı ödeme bilgisi varsa onu kullan
                 paymentMethodJsonb = newSale.paymentData.payments;
             } else if (typeof newSale.paymentMethod === 'string') {
-                // String ise JSONB array formatına çevir
                 paymentMethodJsonb = [{ method: newSale.paymentMethod, amount: newSale.totalAmount }];
             } else {
                 paymentMethodJsonb = newSale.paymentMethod;
             }
 
+            // ID'yi Supabase'e GÖNDERMİYORUZ - PostgreSQL gen_random_uuid() ile üretsin
+            // Böylece UUID format hatası oluşmaz
             const insertData = {
-                id: newSale.id,
                 total_amount: newSale.totalAmount,
                 total_cost: newSale.totalCost,
                 profit: newSale.profit,
@@ -270,6 +270,17 @@ async function addSale(saleData) {
             if (error) {
                 console.error('❌ Supabase INSERT error:', error);
                 throw error;
+            }
+            
+            // Supabase'in ürettiği UUID'yi localStorage'a da kaydet
+            if (data && data[0]) {
+                newSale.supabaseId = data[0].id;
+                // localStorage'daki kaydı güncelle
+                const cacheIndex = localSalesCache.findIndex(s => s.id === localId);
+                if (cacheIndex !== -1) {
+                    localSalesCache[cacheIndex].supabaseId = data[0].id;
+                    Storage.saveSales(localSalesCache);
+                }
             }
             console.log('✅ Satış Supabase\'e kaydedildi:', data);
         } catch (error) {

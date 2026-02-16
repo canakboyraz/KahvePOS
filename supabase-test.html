@@ -53,10 +53,10 @@
 
             // TEST 3: INSERT
             log('\n📝 TEST 3: Sales tablosuna yazma...');
-            const testId = 'test-' + Date.now();
+            let insertedId = null;
             try {
+                // ID göndermiyoruz - PostgreSQL gen_random_uuid() ile üretecek
                 const insertData = {
-                    id: testId,
                     total_amount: 42.50,
                     total_cost: 20.00,
                     profit: 22.50,
@@ -82,7 +82,9 @@
                     log('   Detay: ' + error.details);
                     log('   Hint: ' + error.hint);
                 } else {
+                    insertedId = data[0].id;
                     log('✅ INSERT BAŞARILI! Kaydedilen: ' + JSON.stringify(data, null, 2));
+                    log('   PostgreSQL tarafından üretilen UUID: ' + insertedId);
                 }
             } catch (e) {
                 log('❌ INSERT EXCEPTION: ' + e.message);
@@ -90,38 +92,42 @@
             }
 
             // TEST 4: Doğrulama - eklenen kaydı oku
-            log('\n🔍 TEST 4: Eklenen kaydı doğrulama...');
-            try {
-                const { data, error } = await sb
-                    .from('sales')
-                    .select('*')
-                    .eq('id', testId)
-                    .single();
-                
-                if (error) {
-                    log('❌ Doğrulama hatası: ' + JSON.stringify(error));
-                } else {
-                    log('✅ Kayıt doğrulandı: ' + JSON.stringify(data, null, 2));
+            if (insertedId) {
+                log('\n🔍 TEST 4: Eklenen kaydı doğrulama...');
+                try {
+                    const { data, error } = await sb
+                        .from('sales')
+                        .select('*')
+                        .eq('id', insertedId)
+                        .single();
+                    
+                    if (error) {
+                        log('❌ Doğrulama hatası: ' + JSON.stringify(error));
+                    } else {
+                        log('✅ Kayıt doğrulandı: ' + JSON.stringify(data, null, 2));
+                    }
+                } catch(e) {
+                    log('❌ EXCEPTION: ' + e.message);
                 }
-            } catch(e) {
-                log('❌ EXCEPTION: ' + e.message);
-            }
 
-            // TEST 5: Temizlik
-            log('\n🧹 TEST 5: Test kaydını silme...');
-            try {
-                const { error } = await sb
-                    .from('sales')
-                    .delete()
-                    .eq('id', testId);
-                
-                if (error) {
-                    log('❌ Silme hatası: ' + JSON.stringify(error));
-                } else {
-                    log('✅ Test kaydı silindi');
+                // TEST 5: Temizlik
+                log('\n🧹 TEST 5: Test kaydını silme...');
+                try {
+                    const { error } = await sb
+                        .from('sales')
+                        .delete()
+                        .eq('id', insertedId);
+                    
+                    if (error) {
+                        log('❌ Silme hatası: ' + JSON.stringify(error));
+                    } else {
+                        log('✅ Test kaydı silindi');
+                    }
+                } catch(e) {
+                    log('❌ EXCEPTION: ' + e.message);
                 }
-            } catch(e) {
-                log('❌ EXCEPTION: ' + e.message);
+            } else {
+                log('\n⏭️ TEST 4 ve 5 atlandı (INSERT başarısız oldu)');
             }
 
             log('\n🏁 TEST TAMAMLANDI');
