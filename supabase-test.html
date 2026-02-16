@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Bağlantı Testi</h1>
+    <pre id="output" style="background:#111;color:#0f0;padding:20px;font-size:14px;min-height:400px;overflow:auto;"></pre>
+    <script>
+        const log = (msg) => {
+            document.getElementById('output').textContent += msg + '\n';
+            console.log(msg);
+        };
+
+        (async () => {
+            log('🧪 TEST BAŞLIYOR...');
+            
+            const SUPABASE_URL = 'https://rnibcfiwsleobsdlfqfg.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaWJjZml3c2xlb2JzZGxmcWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMTkxNzcsImV4cCI6MjA4NTg5NTE3N30.kG5BZV_JnEuVwE_AyXS7LxQSq6GJoPTzY86k7oZYVg0';
+            
+            log('1️⃣ Supabase client oluşturuluyor...');
+            const { createClient } = supabase;
+            const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+            log('✅ Client oluşturuldu');
+
+            // TEST 1: SELECT
+            log('\n📖 TEST 1: Sales tablosundan okuma...');
+            try {
+                const { data, error } = await sb.from('sales').select('id, total_amount, created_at').limit(3);
+                if (error) {
+                    log('❌ SELECT HATA: ' + JSON.stringify(error));
+                } else {
+                    log('✅ SELECT BAŞARILI: ' + data.length + ' kayıt bulundu');
+                    log('   Veri: ' + JSON.stringify(data, null, 2));
+                }
+            } catch (e) {
+                log('❌ SELECT EXCEPTION: ' + e.message);
+            }
+
+            // TEST 2: Kolon bilgileri
+            log('\n📋 TEST 2: Sales kolon bilgileri...');
+            try {
+                const { data, error } = await sb.from('sales').select('*').limit(0);
+                if (error) {
+                    log('❌ Kolon bilgisi alınamadı: ' + JSON.stringify(error));
+                } else {
+                    log('✅ Sales tablosu erişilebilir');
+                }
+            } catch(e) {
+                log('❌ EXCEPTION: ' + e.message);
+            }
+
+            // TEST 3: INSERT
+            log('\n📝 TEST 3: Sales tablosuna yazma...');
+            const testId = 'test-' + Date.now();
+            try {
+                const insertData = {
+                    id: testId,
+                    total_amount: 42.50,
+                    total_cost: 20.00,
+                    profit: 22.50,
+                    discount_amount: 0,
+                    payment_method: [{"method": "cash", "amount": 42.50}],
+                    payment_method_text: 'Nakit',
+                    items: [{"productId": "test1", "productName": "Test Kahve", "quantity": 1, "unitPrice": 42.50}],
+                    created_by: 'debug_test',
+                    created_at: new Date().toISOString()
+                };
+                
+                log('   Insert verisi: ' + JSON.stringify(insertData, null, 2));
+                
+                const { data, error } = await sb
+                    .from('sales')
+                    .insert(insertData)
+                    .select();
+                
+                if (error) {
+                    log('❌ INSERT HATA: ' + JSON.stringify(error, null, 2));
+                    log('   Hata kodu: ' + error.code);
+                    log('   Hata mesajı: ' + error.message);
+                    log('   Detay: ' + error.details);
+                    log('   Hint: ' + error.hint);
+                } else {
+                    log('✅ INSERT BAŞARILI! Kaydedilen: ' + JSON.stringify(data, null, 2));
+                }
+            } catch (e) {
+                log('❌ INSERT EXCEPTION: ' + e.message);
+                log('   Stack: ' + e.stack);
+            }
+
+            // TEST 4: Doğrulama - eklenen kaydı oku
+            log('\n🔍 TEST 4: Eklenen kaydı doğrulama...');
+            try {
+                const { data, error } = await sb
+                    .from('sales')
+                    .select('*')
+                    .eq('id', testId)
+                    .single();
+                
+                if (error) {
+                    log('❌ Doğrulama hatası: ' + JSON.stringify(error));
+                } else {
+                    log('✅ Kayıt doğrulandı: ' + JSON.stringify(data, null, 2));
+                }
+            } catch(e) {
+                log('❌ EXCEPTION: ' + e.message);
+            }
+
+            // TEST 5: Temizlik
+            log('\n🧹 TEST 5: Test kaydını silme...');
+            try {
+                const { error } = await sb
+                    .from('sales')
+                    .delete()
+                    .eq('id', testId);
+                
+                if (error) {
+                    log('❌ Silme hatası: ' + JSON.stringify(error));
+                } else {
+                    log('✅ Test kaydı silindi');
+                }
+            } catch(e) {
+                log('❌ EXCEPTION: ' + e.message);
+            }
+
+            log('\n🏁 TEST TAMAMLANDI');
+        })();
+    </script>
+</body>
+</html>
