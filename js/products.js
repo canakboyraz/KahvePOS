@@ -22,10 +22,22 @@ let localProductCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
 
-function checkSupabaseConnection() {
+function productsCheckSupabaseConnection() {
     return typeof window.supabase !== 'undefined' &&
            window.supabase &&
            productsIsOnline;
+}
+
+function toSupabaseProductPayload(product) {
+    return {
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        cost_price: product.costPrice ?? product.cost_price ?? 0,
+        sale_price: product.salePrice ?? product.sale_price ?? 0,
+        icon: product.icon || 'â˜•',
+        active: product.active ?? true
+    };
 }
 
 // ===== OFFLINE QUEUE =====
@@ -57,32 +69,37 @@ function addToOfflineQueue(operation, data) {
 }
 
 async function syncOfflineChanges() {
-    if (!checkSupabaseConnection() || productsOfflineQueue.length === 0) {
+    if (!productsCheckSupabaseConnection() || productsOfflineQueue.length === 0) {
         return;
     }
 
+    const initialQueueLength = productsOfflineQueue.length;
     const failedItems = [];
 
     for (const item of productsOfflineQueue) {
         try {
+            let result = null;
             switch (item.operation) {
                 case 'add':
-                    await window.supabase
+                    result = await window.supabase
                         .from('products')
-                        .insert(item.data);
+                        .insert(toSupabaseProductPayload(item.data));
                     break;
                 case 'update':
-                    await window.supabase
+                    result = await window.supabase
                         .from('products')
-                        .update(item.data)
+                        .update(toSupabaseProductPayload(item.data))
                         .eq('id', item.data.id);
                     break;
                 case 'delete':
-                    await window.supabase
+                    result = await window.supabase
                         .from('products')
                         .delete()
                         .eq('id', item.data.id);
                     break;
+            }
+            if (result?.error) {
+                throw result.error;
             }
         } catch (error) {
             console.error('Sync hatası:', error);
@@ -93,7 +110,7 @@ async function syncOfflineChanges() {
     productsOfflineQueue = failedItems;
     saveOfflineQueue();
     
-    if (failedItems.length === 0 && productsOfflineQueue.length !== failedItems.length) {
+    if (failedItems.length === 0 && initialQueueLength > 0) {
         showToast('Offline değişiklikler senkronize edildi', 'success');
     }
 }
@@ -141,7 +158,7 @@ async function loadProducts() {
     // Önce localStorage'dan yükle
     localProductCache = Storage.getProducts() || [];
 
-    if (checkSupabaseConnection()) {
+    if (productsCheckSupabaseConnection()) {
         try {
             const { data, error } = await window.supabase
                 .from('products')
@@ -201,7 +218,7 @@ async function loadProducts() {
 async function seedInitialProducts() {
     const sampleProducts = getSampleProducts();
     
-    if (checkSupabaseConnection()) {
+    if (productsCheckSupabaseConnection()) {
         try {
             const { data, error } = await window.supabase
                 .from('products')
@@ -629,7 +646,7 @@ async function saveProduct(event) {
             allProducts[index] = { ...allProducts[index], ...updatedProduct };
         }
 
-        if (checkSupabaseConnection()) {
+        if (productsCheckSupabaseConnection()) {
             try {
                 const { error } = await window.supabase
                     .from('products')
@@ -664,7 +681,7 @@ async function saveProduct(event) {
 
         allProducts.push(newProduct);
 
-        if (checkSupabaseConnection()) {
+        if (productsCheckSupabaseConnection()) {
             try {
                 const { error } = await window.supabase
                     .from('products')
@@ -715,7 +732,7 @@ async function deleteProduct(productId) {
     // Local storage'dan sil
     allProducts = allProducts.filter(p => p.id !== productId);
 
-    if (checkSupabaseConnection()) {
+    if (productsCheckSupabaseConnection()) {
         try {
             const { error } = await window.supabase
                 .from('products')

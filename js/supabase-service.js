@@ -51,7 +51,8 @@ const SupabaseService = {
             });
             
             if (error) throw error;
-            
+            this.currentUser = data?.user || null;
+            await this.loadUserProfile();
             return { success: true, user: this.userProfile };
         } catch (error) {
             console.error('❌ Giriş hatası:', error);

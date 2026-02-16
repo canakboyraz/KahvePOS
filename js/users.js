@@ -214,17 +214,128 @@ async function getAllUsers() {
     return localUsers;
 }
 
+function buildPermissions(userData) {
+    return {
+        products: userData.canManageProducts || false,
+        reports: userData.canViewReports !== false,
+        users: userData.canManageUsers || false
+    };
+}
+
+async function restorePreviousSession(previousSession) {
+    if (!previousSession?.access_token || !previousSession?.refresh_token) {
+        return;
+    }
+
+    const { data: { session: currentSession } } = await window.supabase.auth.getSession();
+    if (currentSession?.user?.id === previousSession?.user?.id) {
+        return;
+    }
+
+    const { error } = await window.supabase.auth.setSession({
+        access_token: previousSession.access_token,
+        refresh_token: previousSession.refresh_token
+    });
+
+    if (error) {
+        console.warn('Session restore failed:', error.message);
+        return;
+    }
+
+    if (window.SupabaseService?.loadUserProfile) {
+        await window.SupabaseService.loadUserProfile();
+    }
+}
+
+async function createUserInSupabase(userData) {
+    const normalizedUsername = (userData.username || '').trim();
+    const authEmail = normalizedUsername.includes('@')
+        ? normalizedUsername
+        : `${normalizedUsername}@kahvepos.local`;
+    const previousSession = (await window.supabase.auth.getSession()).data?.session || null;
+
+    const { data, error } = await window.supabase.auth.signUp({
+        email: authEmail,
+        password: userData.password,
+        options: {
+            data: {
+                username: normalizedUsername,
+                role: userData.role || 'barista'
+            }
+        }
+    });
+
+    if (error) {
+        throw error;
+    }
+
+    if (!data?.user) {
+        throw new Error('Supabase user could not be created');
+    }
+
+    const { error: profileError } = await window.supabase
+        .from('profiles')
+        .upsert({
+            id: data.user.id,
+            username: normalizedUsername,
+            role: userData.role || 'barista',
+            permissions: buildPermissions(userData),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+    if (profileError) {
+        throw profileError;
+    }
+
+    await restorePreviousSession(previousSession);
+    return data.user;
+}
+
+async function disableUserInSupabase(userId) {
+    try {
+        if (window.supabase.functions?.invoke) {
+            const { error: fnError } = await window.supabase.functions.invoke('admin-delete-user', {
+                body: { userId }
+            });
+            if (!fnError) {
+                return;
+            }
+        }
+    } catch (error) {
+        // Edge function yoksa profile soft-delete fallback'i kullan
+    }
+
+    const archivedUsername = `deleted_${Date.now()}_${String(userId).slice(0, 8)}`;
+    const { error } = await window.supabase
+        .from('profiles')
+        .update({
+            username: archivedUsername,
+            role: 'barista',
+            permissions: {
+                products: false,
+                reports: false,
+                users: false
+            },
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+    if (error) {
+        throw error;
+    }
+}
+
 /**
  * Yeni kullanıcı ekle (Hybrid)
  */
 async function addUser(userData) {
-    // Kullanıcı adı kontrolü
+    // Kullanici adi kontrolu
     const users = await getAllUsers();
     const normalizedUsername = (userData.username || '').trim();
     if (users.find(u => (u.username || '').toLowerCase() === normalizedUsername.toLowerCase())) {
-        return { success: false, message: 'Bu kullanıcı adı zaten kullanılıyor' };
+        return { success: false, message: 'Bu kullanici adi zaten kullaniliyor' };
     }
-    
+
     const newUser = {
         id: 'user_' + Date.now(),
         username: normalizedUsername,
@@ -235,173 +346,115 @@ async function addUser(userData) {
         canViewReports: userData.canViewReports !== false,
         createdAt: new Date().toISOString()
     };
-    
-    // Local storage'a ekle (hızlı erişim için)
+
+    // Local storage'a ekle (hizli erisim icin)
     users.push(newUser);
     Storage.set('kahvepos_users', users);
-    
+
     // Online ise Supabase'e de ekle
     if (usersIsOnline && window.SupabaseService) {
         try {
-            const authEmail = normalizedUsername.includes('@')
-                ? normalizedUsername
-                : `${normalizedUsername}@kahvepos.local`;
-
-            // Supabase Auth'da kullanıcı oluştur
-            const { data, error } = await window.supabase.auth.signUp({
-                email: authEmail,
-                password: userData.password,
-                options: {
-                    data: {
-                        username: normalizedUsername,
-                        role: userData.role || 'barista'
-                    }
-                }
+            const createdUser = await createUserInSupabase({
+                ...userData,
+                username: normalizedUsername
             });
 
-            if (error) {
-                throw error;
-            }
-            
-            if (data.user) {
-                // Profil oluştur
-                const { error: profileError } = await window.supabase
-                    .from('profiles')
-                    .insert({
-                        id: data.user.id,
-                        username: normalizedUsername,
-                        role: userData.role || 'barista',
-                        permissions: {
-                            products: userData.canManageProducts || false,
-                            reports: userData.canViewReports !== false,
-                            users: userData.canManageUsers || false
-                        }
-                    });
-
-                if (profileError) {
-                    throw profileError;
-                }
-                
-                // Local ID'yi Supabase ID ile güncelle
-                newUser.id = data.user.id;
-                Storage.set('kahvepos_users', users);
-                console.log('✅ Kullanıcı Supabase\'e eklendi');
-            }
+            newUser.id = createdUser.id;
+            newUser.password = '***';
+            Storage.set('kahvepos_users', users);
+            console.log('User synced to Supabase');
         } catch (error) {
-            console.log('⚠️ Supabase\'e eklenemedi, sadece locale kaydedildi:', error.message);
-            // Offline queue'ya ekle
+            console.log('Supabase add user error, saved locally:', error.message);
             addToOfflineQueue('addUser', newUser);
         }
     } else {
-        // Offline ise queue'ya ekle
         addToOfflineQueue('addUser', newUser);
     }
-    
-    return { success: true, message: 'Kullanıcı eklendi', user: newUser };
+
+    return { success: true, message: 'Kullanici eklendi', user: newUser };
 }
 
-/**
- * Kullanıcı güncelle (Hybrid)
- */
 async function updateUser(userId, userData) {
     const users = await getAllUsers();
     const index = users.findIndex(u => u.id === userId);
-    
+
     if (index === -1) {
-        return { success: false, message: 'Kullanıcı bulunamadı' };
+        return { success: false, message: 'Kullanici bulunamadi' };
     }
-    
-    // Admin rolü değiştirilemez
+
+    // Admin rolu degistirilemez
     if (users[index].role === 'admin' && userData.role && userData.role !== 'admin') {
-        return { success: false, message: 'Admin kullanıcısının rolü değiştirilemez' };
+        return { success: false, message: 'Admin kullanicisinin rolu degistirilemez' };
     }
-    
-    // Local storage'da güncelle
+
+    // Local storage'da guncelle
     users[index] = {
         ...users[index],
         ...userData,
-        id: users[index].id // ID değiştirilemez
+        id: users[index].id // ID degistirilemez
     };
     Storage.set('kahvepos_users', users);
-    
-    // Online ise Supabase'de güncelle
+    const updatedUser = users[index];
+
+    // Online ise Supabase'de guncelle
     if (usersIsOnline && window.SupabaseService) {
         try {
             const { error } = await window.supabase
                 .from('profiles')
                 .update({
-                    username: userData.username,
-                    role: userData.role || users[index].role,
-                    permissions: {
-                        products: userData.canManageProducts || false,
-                        reports: userData.canViewReports !== false,
-                        users: userData.canManageUsers || false
-                    },
+                    username: updatedUser.username,
+                    role: updatedUser.role || 'barista',
+                    permissions: buildPermissions(updatedUser),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', userId);
-            
-            if (!error) {
-                console.log('✅ Kullanıcı Supabase\'de güncellendi');
-            }
+
+            if (error) throw error;
+            console.log('User updated in Supabase');
         } catch (error) {
-            console.log('⚠️ Supabase güncelleme hatası:', error.message);
+            console.log('Supabase update error:', error.message);
             addToOfflineQueue('updateUser', { userId, userData });
         }
     } else {
         addToOfflineQueue('updateUser', { userId, userData });
     }
-    
-    return { success: true, message: 'Kullanıcı güncellendi', user: users[index] };
+
+    return { success: true, message: 'Kullanici guncellendi', user: users[index] };
 }
 
-/**
- * Kullanıcı sil (Hybrid)
- */
 async function deleteUser(userId) {
     const users = await getAllUsers();
     const user = users.find(u => u.id === userId);
-    
+
     if (!user) {
-        return { success: false, message: 'Kullanıcı bulunamadı' };
+        return { success: false, message: 'Kullanici bulunamadi' };
     }
-    
+
     // Admin silinemez
     if (user.role === 'admin') {
-        return { success: false, message: 'Admin kullanıcısı silinemez' };
+        return { success: false, message: 'Admin kullanicisi silinemez' };
     }
-    
+
     // Local storage'dan sil
     const filteredUsers = users.filter(u => u.id !== userId);
     Storage.set('kahvepos_users', filteredUsers);
-    
-    // Online ise Supabase'den sil
+
+    // Online ise Supabase'de devre disi birak
     if (usersIsOnline && window.SupabaseService) {
         try {
-            // Supabase Auth'dan sil
-            await window.supabase.auth.admin.deleteUser(userId);
-            
-            // Profil sil (soft delete - isActive = false)
-            await window.supabase
-                .from('profiles')
-                .update({ is_active: false })
-                .eq('id', userId);
-            
-            console.log('✅ Kullanıcı Supabase\'den silindi');
+            await disableUserInSupabase(userId);
+            console.log('User disabled in Supabase');
         } catch (error) {
-            console.log('⚠️ Supabase silme hatası:', error.message);
+            console.log('Supabase user disable error:', error.message);
             addToOfflineQueue('deleteUser', { userId });
         }
     } else {
         addToOfflineQueue('deleteUser', { userId });
     }
-    
-    return { success: true, message: 'Kullanıcı silindi' };
+
+    return { success: true, message: 'Kullanici silindi' };
 }
 
-/**
- * Kullanıcı adına göre kullanıcı bul
- */
 async function getUserByUsername(username) {
     const users = await getAllUsers();
     return users.find(u => u.username.toLowerCase() === username.toLowerCase());
@@ -461,32 +514,111 @@ function addToOfflineQueue(operation, data) {
 /**
  * Offline değişiklikleri senkronize et
  */
+async function syncQueuedAddUser(queuedUser) {
+    let createdUser = null;
+    try {
+        createdUser = await createUserInSupabase(queuedUser);
+    } catch (error) {
+        const message = (error?.message || '').toLowerCase();
+        const duplicateUser = message.includes('already') || message.includes('duplicate');
+        if (!duplicateUser) {
+            throw error;
+        }
+
+        const { data, error: profileError } = await window.supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', queuedUser.username)
+            .maybeSingle();
+
+        if (profileError || !data?.id) {
+            throw error;
+        }
+        createdUser = { id: data.id };
+    }
+
+    const localUsers = Storage.get('kahvepos_users') || [];
+    const username = (queuedUser.username || '').toLowerCase();
+    const index = localUsers.findIndex(u =>
+        u.id === queuedUser.id || (u.username || '').toLowerCase() === username
+    );
+
+    if (index >= 0) {
+        localUsers[index].id = createdUser.id;
+        localUsers[index].password = '***';
+        Storage.set('kahvepos_users', localUsers);
+    }
+}
+
+async function syncQueuedUpdateUser(payload) {
+    if (!payload?.userId || !payload?.userData) {
+        throw new Error('Gecersiz updateUser offline verisi');
+    }
+
+    const { userId, userData } = payload;
+    const localUsers = Storage.get('kahvepos_users') || [];
+    const localUser = localUsers.find(u => u.id === userId) || {};
+    const mergedUser = { ...localUser, ...userData };
+    const { error } = await window.supabase
+        .from('profiles')
+        .update({
+            username: mergedUser.username,
+            role: mergedUser.role || 'barista',
+            permissions: buildPermissions(mergedUser),
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+    if (error) throw error;
+}
+
+async function syncQueuedDeleteUser(payload) {
+    const userId = payload?.userId || payload?.id;
+    if (!userId) {
+        throw new Error('Gecersiz deleteUser offline verisi');
+    }
+
+    await disableUserInSupabase(userId);
+}
+
+/**
+ * Offline degisiklikleri senkronize et
+ */
 async function syncOfflineChanges() {
+    if (!usersIsOnline || !window.supabase) return;
+
     const queue = JSON.parse(localStorage.getItem('kahvepos_offline_queue') || '[]');
     if (queue.length === 0) return;
-    
-    console.log('🔄 Offline değişiklikler senkronize ediliyor...');
-    
+
+    const failedItems = [];
+    console.log('Offline degisiklikler senkronize ediliyor...');
+
     for (const item of queue) {
         try {
             switch (item.operation) {
                 case 'addUser':
-                    await addUser(item.data);
+                    await syncQueuedAddUser(item.data);
                     break;
                 case 'updateUser':
-                    await updateUser(item.data.userId, item.data.userData);
+                    await syncQueuedUpdateUser(item.data);
                     break;
                 case 'deleteUser':
-                    await deleteUser(item.data.userId);
+                    await syncQueuedDeleteUser(item.data);
+                    break;
+                default:
+                    failedItems.push(item);
                     break;
             }
         } catch (error) {
-            console.error('❌ Senkronizasyon hatası:', item.operation, error);
+            console.error('Senkronizasyon hatasi:', item.operation, error);
+            failedItems.push(item);
         }
     }
-    
-    localStorage.setItem('kahvepos_offline_queue', '[]');
-    console.log('✅ Offline senkronizasyon tamamlandı');
+
+    localStorage.setItem('kahvepos_offline_queue', JSON.stringify(failedItems));
+    if (failedItems.length === 0) {
+        console.log('Offline senkronizasyon tamamlandi');
+    }
 }
 
 // ==================== LEGACY FONKSİYONLAR (Gerile uyumluluk) ====================

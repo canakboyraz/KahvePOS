@@ -10,7 +10,7 @@ let localSalesCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
 
-function checkSupabaseConnection() {
+function salesCheckSupabaseConnection() {
     return typeof window.supabase !== 'undefined' &&
            window.supabase &&
            salesIsOnline;
@@ -112,6 +112,13 @@ async function insertSaleToSupabase(newSale, options = {}) {
     return { data, error };
 }
 
+function buildSaleDeleteFilter(data) {
+    const filters = [];
+    if (data?.id) filters.push(`id.eq.${data.id}`);
+    if (data?.supabaseId) filters.push(`id.eq.${data.supabaseId}`);
+    return filters.join(',');
+}
+
 // ===== OFFLINE QUEUE =====
 
 function loadSalesOfflineQueue() {
@@ -141,7 +148,7 @@ function addSalesToOfflineQueue(operation, data) {
 }
 
 async function syncSalesOfflineChanges() {
-    if (!checkSupabaseConnection() || salesOfflineQueue.length === 0) {
+    if (!salesCheckSupabaseConnection() || salesOfflineQueue.length === 0) {
         return;
     }
 
@@ -183,11 +190,13 @@ async function syncSalesOfflineChanges() {
                     if (insertResult.error) throw insertResult.error;
                     break;
                 case 'delete':
-                    if (!item.data?.id) break;
-                    await window.supabase
+                    const deleteFilter = buildSaleDeleteFilter(item.data);
+                    if (!deleteFilter) break;
+                    const { error: deleteError } = await window.supabase
                         .from('sales')
                         .delete()
-                        .or(`id.eq.${item.data.id},id.eq.${item.data.supabaseId || ''}`);
+                        .or(deleteFilter);
+                    if (deleteError) throw deleteError;
                     break;
             }
         } catch (error) {
@@ -237,7 +246,7 @@ async function getAllSales() {
     loadSalesOfflineQueue();
     localSalesCache = Storage.getSales() || [];
 
-    if (checkSupabaseConnection()) {
+    if (salesCheckSupabaseConnection()) {
         try {
             const { data, error } = await window.supabase
                 .from('sales')
@@ -320,10 +329,10 @@ async function addSale(saleData) {
         supabaseDefined: typeof window.supabase !== 'undefined',
         supabaseExists: !!window.supabase,
         isOnline: salesIsOnline,
-        checkResult: checkSupabaseConnection()
+        checkResult: salesCheckSupabaseConnection()
     });
 
-    if (checkSupabaseConnection()) {
+    if (salesCheckSupabaseConnection()) {
         try {
             const { data, error } = await insertSaleToSupabase(newSale, { includeId: false });
 
@@ -464,26 +473,35 @@ function calculateProductSales(sales) {
 // ===== SATIŞ SİLME =====
 
 async function deleteSale(saleId) {
+    const saleToDelete = localSalesCache.find(sale => sale.id === saleId);
+    const deletePayload = {
+        id: saleId,
+        supabaseId: saleToDelete?.supabaseId
+    };
+
     // Local storage'dan sil
     localSalesCache = localSalesCache.filter(sale => sale.id !== saleId);
     Storage.saveSales(localSalesCache);
 
-    if (checkSupabaseConnection()) {
+    if (salesCheckSupabaseConnection()) {
         try {
+            const deleteFilter = buildSaleDeleteFilter(deletePayload);
+            if (!deleteFilter) throw new Error('Silinecek satış kimliği bulunamadı');
+
             const { error } = await window.supabase
                 .from('sales')
                 .delete()
-                .eq('id', saleId);
+                .or(deleteFilter);
 
             if (error) throw error;
             showToast('Satış silindi (Senkronize)', 'success');
         } catch (error) {
             console.error('Supabase satış silme hatası:', error);
-            addSalesToOfflineQueue('delete', { id: saleId });
+            addSalesToOfflineQueue('delete', deletePayload);
             showToast('Satış silindi (Offline kuyrukta)', 'warning');
         }
     } else {
-        addSalesToOfflineQueue('delete', { id: saleId });
+        addSalesToOfflineQueue('delete', deletePayload);
     }
 
     return true;
