@@ -213,15 +213,16 @@ function performPageSwitch(pageName) {
 // ===== KULLANICI YÖNETİMİ =====
 
 // Kullanıcı listesini oluştur
-function renderUsersList() {
+async function renderUsersList() {
     const listContainer = document.getElementById('users-list');
     const emptyState = document.getElementById('empty-users');
     
     if (!listContainer) return;
     
-    const users = getAllUsers();
+    const users = await getAllUsers();
+    const safeUsers = Array.isArray(users) ? users : [];
     
-    if (users.length === 0) {
+    if (safeUsers.length === 0) {
         listContainer.innerHTML = '';
         if (emptyState) emptyState.style.display = 'block';
         return;
@@ -229,7 +230,7 @@ function renderUsersList() {
     
     if (emptyState) emptyState.style.display = 'none';
     
-    listContainer.innerHTML = users.map(user => {
+    listContainer.innerHTML = safeUsers.map(user => {
         const role = ROLES[user.role] || ROLES.barista;
         const isOwnAccount = getCurrentUser() && getCurrentUser().id === user.id;
         
@@ -261,7 +262,7 @@ function renderUsersList() {
 }
 
 // Kullanıcı modal açma
-function openUserModal(userId = null) {
+async function openUserModal(userId = null) {
     const modal = document.getElementById('user-modal');
     const modalTitle = document.getElementById('user-modal-title');
     const form = document.getElementById('user-form');
@@ -281,7 +282,7 @@ function openUserModal(userId = null) {
     
     if (userId) {
         // Düzenleme modu
-        const user = getUserById(userId);
+        const user = await getUserById(userId);
         if (user) {
             if (modalTitle) modalTitle.textContent = 'Kullanıcı Düzenle';
             if (userIdInput) userIdInput.value = user.id;
@@ -310,7 +311,7 @@ function closeUserModal() {
 }
 
 // Kullanıcı kaydetme
-function saveUser(event) {
+async function saveUser(event) {
     event.preventDefault();
     
     const userId = document.getElementById('user-id').value;
@@ -336,19 +337,19 @@ function saveUser(event) {
     let result;
     if (userId) {
         // Güncelleme
-        const existingUser = getUserById(userId);
+        const existingUser = await getUserById(userId);
         if (!userData.password) {
-            userData.password = existingUser.password; // Şifre boşsa değiştirme
+            userData.password = existingUser?.password || ''; // Şifre boşsa değiştirme
         }
-        result = updateUser(userId, userData);
+        result = await updateUser(userId, userData);
     } else {
         // Yeni kullanıcı
-        result = addUser(userData);
+        result = await addUser(userData);
     }
     
     if (result.success) {
         showToast(result.message, 'success');
-        renderUsersList();
+        await renderUsersList();
         closeUserModal();
     } else {
         showToast(result.message, 'error');
@@ -356,20 +357,20 @@ function saveUser(event) {
 }
 
 // Kullanıcı düzenleme
-function editUser(userId) {
-    openUserModal(userId);
+async function editUser(userId) {
+    await openUserModal(userId);
 }
 
 // Kullanıcı silme
-function deleteUser(userId) {
-    const user = getUserById(userId);
+async function deleteUser(userId) {
+    const user = await getUserById(userId);
     if (!user) return;
     
     if (confirm(`"${user.username}" kullanıcısını silmek istediğinize emin misiniz?`)) {
-        const result = deleteUserById(userId);
+        const result = await window.Users.deleteUser(userId);
         if (result.success) {
             showToast(result.message, 'success');
-            renderUsersList();
+            await renderUsersList();
         } else {
             showToast(result.message, 'error');
         }
