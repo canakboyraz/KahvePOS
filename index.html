@@ -106,6 +106,12 @@
                             <canvas id="category-chart"></canvas>
                         </div>
                     </div>
+                    <div class="chart-card">
+                        <h3>💳 Ödeme Metodları Dağılımı</h3>
+                        <div class="chart-container">
+                            <canvas id="payment-methods-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Top Products & Quick Actions -->
@@ -352,6 +358,28 @@
                         </tr>
                     </thead>
                     <tbody id="orders-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Ödeme Metodları -->
+            <div class="report-section">
+                <h3>💳 Ödeme Metodları</h3>
+                <div class="chart-wrapper">
+                    <canvas id="payment-methods-chart"></canvas>
+                </div>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Ödeme Metodu</th>
+                            <th class="numeric">İşlem Sayısı</th>
+                            <th class="numeric">Toplam Tutar</th>
+                            <th class="numeric">Pay</th>
+                            <th class="numeric">Ortalama</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payment-methods-table">
                         <!-- JavaScript ile doldurulacak -->
                     </tbody>
                 </table>

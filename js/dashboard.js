@@ -5,6 +5,7 @@
 
 let weeklySalesChart = null;
 let categoryChart = null;
+let paymentMethodChart = null;
 let hourlySalesChart = null;
 
 // Dashboard verilerini yükle
@@ -12,6 +13,7 @@ async function loadDashboard() {
     await updateDashboardStats();
     await loadWeeklySalesChart();
     await loadCategoryChart();
+    await loadPaymentMethodsChart();
     await loadTopProducts();
 }
 
@@ -319,6 +321,127 @@ async function loadTop10Products(date) {
             </div>
         `;
     }).join('');
+}
+
+// Ödeme metodları grafiği
+async function loadPaymentMethodsChart() {
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
+    
+    const todaySales = await getTodaySales();
+    const paymentSummary = calculateDailyPaymentSummary(todaySales);
+    
+    if (paymentSummary.length === 0) {
+        return;
+    }
+
+    if (paymentMethodChart) {
+        paymentMethodChart.destroy();
+    }
+
+    const labels = paymentSummary.map(p => p.name);
+    const data = paymentSummary.map(p => p.amount);
+    const colors = paymentSummary.map(p => p.color);
+
+    paymentMethodChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderColor: 'var(--color-surface)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed.toFixed(2) + ' ₺ (%' + percentage + ')';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Günlük ödeme metodu özeti hesapla
+function calculateDailyPaymentSummary(sales) {
+    const paymentMethods = {
+        'cash': { name: 'Nakit 💵', color: '#4CAF50' },
+        'credit_card': { name: 'Kredi Kartı 💳', color: '#2196F3' },
+        'debit_card': { name: 'Banka Kartı 💳', color: '#FF9800' },
+        'transfer': { name: 'Havale/EFT 🏦', color: '#9C27B0' },
+        'mobile': { name: 'Mobil 📱', color: '#E91E63' },
+        'credit': { name: 'Veresiye 📝', color: '#F44336' }
+    };
+
+    const summary = {};
+
+    sales.forEach(sale => {
+        if (sale.paymentData?.payments && Array.isArray(sale.paymentData.payments)) {
+            // Çoklu ödeme
+            sale.paymentData.payments.forEach(payment => {
+                const methodId = payment.method || 'cash';
+                const methodInfo = paymentMethods[methodId] || { name: payment.methodName || 'Diğer', color: '#999' };
+                
+                if (!summary[methodId]) {
+                    summary[methodId] = {
+                        methodId: methodId,
+                        name: methodInfo.name,
+                        color: methodInfo.color,
+                        amount: 0
+                    };
+                }
+                
+                summary[methodId].amount += payment.amount || 0;
+            });
+        } else if (sale.paymentMethod) {
+            // Tek ödeme yöntemi (eski format)
+            const methodId = sale.paymentMethod.toLowerCase();
+            const methodInfo = paymentMethods[methodId] || { name: sale.paymentMethod, color: '#999' };
+            
+            if (!summary[methodId]) {
+                summary[methodId] = {
+                    methodId: methodId,
+                    name: methodInfo.name,
+                    color: methodInfo.color,
+                    amount: 0
+                };
+            }
+            
+            summary[methodId].amount += sale.totalAmount || 0;
+        } else {
+            // Varsayılan olarak nakit
+            if (!summary['cash']) {
+                summary['cash'] = {
+                    methodId: 'cash',
+                    name: 'Nakit 💵',
+                    color: '#4CAF50',
+                    amount: 0
+                };
+            }
+            summary['cash'].amount += sale.totalAmount || 0;
+        }
+    });
+
+    return Object.values(summary).sort((a, b) => b.amount - a.amount);
 }
 
 // Dashboard'ı yenile (dışarıdan çağrılabilir)

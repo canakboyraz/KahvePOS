@@ -2699,6 +2699,88 @@ body {
     font-weight: 500;
 }
 
+/* Ödeme Metodu Butonları */
+.payment-method-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 80px;
+    position: relative;
+    overflow: hidden;
+}
+
+.payment-method-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary);
+}
+
+.payment-method-btn.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.payment-method-btn .method-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.payment-method-btn .method-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Ödeme Metodu Spesifik Renkleri */
+.payment-method-btn.cash.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.payment-method-btn.credit-card.active {
+    background: #2196F3;
+    border-color: #2196F3;
+}
+
+.payment-method-btn.debit-card.active {
+    background: #FF9800;
+    border-color: #FF9800;
+}
+
+.payment-method-btn.transfer.active {
+    background: #9C27B0;
+    border-color: #9C27B0;
+}
+
+.payment-method-btn.mobile.active {
+    background: #E91E63;
+    border-color: #E91E63;
+}
+
+.payment-method-btn.credit.active {
+    background: #F44336;
+    border-color: #F44336;
+}
+
+/* Ödeme Etiketleri */
+.payment-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+    gap: 0.5rem;
+}
+
 .payment-badge.cash {
     background: #E8F5E9;
     color: #2E7D32;

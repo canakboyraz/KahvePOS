@@ -77,6 +77,184 @@ async function loadReport() {
             if (section) section.style.display = 'block';
         });
     }
+    
+    // Ödeme metodu raporlaması
+    renderPaymentMethodsTable(sales);
+    renderPaymentMethodChart(sales);
+}
+
+/**
+ * Ödeme Metodları Tablosu
+ */
+function renderPaymentMethodsTable(sales) {
+    const tableBody = document.getElementById('payment-methods-table');
+    if (!tableBody) return;
+
+    const paymentSummary = calculatePaymentMethodSummary(sales);
+    
+    if (paymentSummary.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--color-text-light);">
+                    Ödeme kaydı bulunmuyor
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = paymentSummary.map(payment => `
+        <tr>
+            <td>
+                <span class="payment-badge ${payment.methodId}">
+                    ${payment.icon} ${payment.methodName}
+                </span>
+            </td>
+            <td class="numeric">${payment.transactionCount}</td>
+            <td class="numeric">${payment.totalAmount.toFixed(2)} ₺</td>
+            <td class="numeric">${payment.percentage.toFixed(1)}%</td>
+            <td class="numeric">${payment.averageAmount.toFixed(2)} ₺</td>
+        </tr>
+    `).join('');
+}
+
+/**
+ * Ödeme Metodları Ödeme Özeti Hesapla
+ */
+function calculatePaymentMethodSummary(sales) {
+    const paymentMethods = {
+        'cash': { name: 'Nakit', icon: '💵', color: '#4CAF50' },
+        'credit_card': { name: 'Kredi Kartı', icon: '💳', color: '#2196F3' },
+        'debit_card': { name: 'Banka Kartı', icon: '💳', color: '#FF9800' },
+        'transfer': { name: 'Havale/EFT', icon: '🏦', color: '#9C27B0' },
+        'mobile': { name: 'Mobil Ödeme', icon: '📱', color: '#E91E63' },
+        'credit': { name: 'Veresiye', icon: '📝', color: '#F44336' }
+    };
+
+    const summary = {};
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+
+    sales.forEach(sale => {
+        if (sale.paymentData?.payments && Array.isArray(sale.paymentData.payments)) {
+            // Çoklu ödeme
+            sale.paymentData.payments.forEach(payment => {
+                const methodId = payment.method || 'cash';
+                const methodInfo = paymentMethods[methodId] || { name: payment.methodName || 'Diğer', icon: '📦' };
+                
+                if (!summary[methodId]) {
+                    summary[methodId] = {
+                        methodId: methodId,
+                        methodName: methodInfo.name,
+                        icon: methodInfo.icon,
+                        color: methodInfo.color,
+                        totalAmount: 0,
+                        transactionCount: 0
+                    };
+                }
+                
+                summary[methodId].totalAmount += payment.amount || 0;
+                summary[methodId].transactionCount++;
+            });
+        } else if (sale.paymentMethod) {
+            // Tek ödeme yöntemi (eski format)
+            const methodId = sale.paymentMethod.toLowerCase();
+            const methodInfo = paymentMethods[methodId] || { name: sale.paymentMethod, icon: '📦' };
+            
+            if (!summary[methodId]) {
+                summary[methodId] = {
+                    methodId: methodId,
+                    methodName: methodInfo.name,
+                    icon: methodInfo.icon,
+                    color: methodInfo.color,
+                    totalAmount: 0,
+                    transactionCount: 0
+                };
+            }
+            
+            summary[methodId].totalAmount += sale.totalAmount || 0;
+            summary[methodId].transactionCount++;
+        } else {
+            // Varsayılan olarak nakit
+            if (!summary['cash']) {
+                summary['cash'] = {
+                    methodId: 'cash',
+                    methodName: 'Nakit',
+                    icon: '💵',
+                    color: '#4CAF50',
+                    totalAmount: 0,
+                    transactionCount: 0
+                };
+            }
+            summary['cash'].totalAmount += sale.totalAmount || 0;
+            summary['cash'].transactionCount++;
+        }
+    });
+
+    // Yüzdeleri ve ortalamaları hesapla
+    return Object.values(summary).map(method => ({
+        ...method,
+        percentage: totalRevenue > 0 ? (method.totalAmount / totalRevenue) * 100 : 0,
+        averageAmount: method.transactionCount > 0 ? method.totalAmount / method.transactionCount : 0
+    })).sort((a, b) => b.totalAmount - a.totalAmount);
+}
+
+/**
+ * Ödeme Metodları Grafiği
+ */
+function renderPaymentMethodChart(sales) {
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
+
+    const paymentSummary = calculatePaymentMethodSummary(sales);
+    
+    if (paymentSummary.length === 0) {
+        return;
+    }
+
+    if (paymentMethodChart) {
+        paymentMethodChart.destroy();
+    }
+
+    const labels = paymentSummary.map(p => p.methodName);
+    const data = paymentSummary.map(p => p.totalAmount);
+    const colors = paymentSummary.map(p => p.color);
+
+    paymentMethodChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderColor: 'var(--color-surface)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': ' + context.parsed.toFixed(2) + ' ₺ (%' + percentage + ')';
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Dönem seçici
