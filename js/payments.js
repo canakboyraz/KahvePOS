@@ -44,8 +44,8 @@ const Payment = {
         },
         CREDIT: {
             id: 'credit',
-            name: 'Borç/Veresİye',
-            icon: '📝',
+            name: 'İkram',
+            icon: '🎁',
             color: '#F44336'
         }
     },
