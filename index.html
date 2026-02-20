@@ -385,6 +385,86 @@
                 </table>
             </div>
             
+            <!-- Gün Sonu Özeti (Ödeme Metodları) -->
+            <div class="report-section">
+                <h3>🏁 Gün Sonu Özeti (Ödeme Metodları)</h3>
+                <div class="daily-summary-grid" id="daily-payment-summary">
+                    <!-- JavaScript ile doldurulacak -->
+                </div>
+            </div>
+            
+            <!-- Kullanıcı × Ödeme Metodu Matrix -->
+            <div class="report-section">
+                <h3>👥 Kullanıcı × Ödeme Metodu Detay</h3>
+                <div class="filter-controls" style="margin-bottom: 1rem;">
+                    <label for="payment-user-filter">Filtrele:</label>
+                    <select id="payment-user-filter" onchange="filterPaymentByUser()">
+                        <option value="">Tüm Kullanıcılar</option>
+                    </select>
+                </div>
+                <table class="report-table payment-method-matrix">
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı</th>
+                            <th class="numeric">💵 Nakit</th>
+                            <th class="numeric">💳 Kredi Kartı</th>
+                            <th class="numeric">💳 Banka Kartı</th>
+                            <th class="numeric">🏦 Havale/EFT</th>
+                            <th class="numeric">📱 Mobil</th>
+                            <th class="numeric">🎁 İkram</th>
+                            <th class="numeric">Toplam</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payment-user-matrix-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Detaylı İşlem Listesi (Filtrelenebilir) -->
+            <div class="report-section">
+                <h3>📋 Detaylı Ödeme İşlem Listesi</h3>
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="transaction-method-filter">Ödeme Metodu:</label>
+                        <select id="transaction-method-filter" onchange="filterTransactions()">
+                            <option value="">Tümü</option>
+                            <option value="cash">💵 Nakit</option>
+                            <option value="credit_card">💳 Kredi Kartı</option>
+                            <option value="debit_card">💳 Banka Kartı</option>
+                            <option value="transfer">🏦 Havale/EFT</option>
+                            <option value="mobile">📱 Mobil Ödeme</option>
+                            <option value="credit">🎁 İkram</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="transaction-user-filter">Kullanıcı:</label>
+                        <select id="transaction-user-filter" onchange="filterTransactions()">
+                            <option value="">Tümü</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="transaction-search">Ara:</label>
+                        <input type="text" id="transaction-search" placeholder="Ara..." onkeyup="filterTransactions()">
+                    </div>
+                </div>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Saat</th>
+                            <th>Kullanıcı</th>
+                            <th class="numeric">Tutar</th>
+                            <th>Ödeme Metodu</th>
+                            <th>Ürünler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-details-table">
+                        <!-- JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+                <div id="transaction-count-info" style="text-align: center; color: var(--color-text-light); margin-top: 1rem; font-size: 0.9rem;"></div>
+            </div>
+            
             <!-- Kullanıcı Bazlı Satışlar -->
             <div class="report-section">
                 <h3>👥 Kullanıcı Bazlı Satışlar</h3>

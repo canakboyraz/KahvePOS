@@ -6,6 +6,9 @@
 
 let currentReportPeriod = 'today';
 
+// Ödeme metodları global değişkenleri
+let paymentMethodChart = null;
+
 function formatCurrency(value) {
     return `${(Number(value) || 0).toFixed(2)} TL`;
 }
@@ -81,6 +84,11 @@ async function loadReport() {
     // Ödeme metodu raporlaması
     renderPaymentMethodsTable(sales);
     renderPaymentMethodChart(sales);
+    
+    // Yeni ödeme analizi bölümleri
+    renderDailyPaymentSummary(sales);
+    renderPaymentUserMatrix(sales);
+    renderTransactionDetails(sales);
 }
 
 /**
@@ -310,6 +318,11 @@ async function loadWeekReport(sales) {
     
     // Haftalık grafik
     loadWeeklyChart(sales);
+    
+    // Ödeme metodi analizleri
+    renderDailyPaymentSummary(sales);
+    renderPaymentUserMatrix(sales);
+    renderTransactionDetails(sales);
 }
 
 // Aylık rapor
@@ -325,6 +338,11 @@ async function loadMonthReport(sales) {
     
     // Aylık grafik
     loadMonthlyChart(sales);
+    
+    // Ödeme metodi analizleri
+    renderDailyPaymentSummary(sales);
+    renderPaymentUserMatrix(sales);
+    renderTransactionDetails(sales);
 }
 
 // Rapor özetini güncelle
@@ -931,3 +949,332 @@ document.addEventListener('DOMContentLoaded', () => {
         setTodayDate();
     }
 });
+
+/**
+ * Yardımcı Fonksiyonlar
+ */
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateDisplay(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+}
+
+function formatTime(date) {
+    return date.toLocaleTimeString('tr-TR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
+async function getSalesByDate(date) {
+    // Bu fonksiyonun gerçek uygulamada veritabanından satışları getirecek
+    // Şimdik örnek veri döndür
+    return [];
+}
+
+async function getSalesByDateRange(startDate, endDate) {
+    // Bu fonksiyonun gerçek uygulamada veri tabanından satışları getirecek
+    return [];
+}
+
+async function getLastNDaysSales(days) {
+    // Bu fonksiyonun gerçek uygulamada son N günün satışlarını getirecek
+    return [];
+}
+
+async function loadTop10Products(date, salesData) {
+    // Bu fonksiyonun gerçek uygulamada en çok satılan ürünleri yükleyecek
+    // Şimdik boş bir container doldur
+    const top10Container = document.getElementById('top10-list');
+    if (top10Container) {
+        top10Container.innerHTML = '<p style="color: var(--color-text-light);">Yükleniyor...</p>';
+    }
+}
+
+function calculateDailySummary(sales) {
+    return {
+        totalSales: sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0),
+        totalCost: sales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0),
+        totalProfit: sales.reduce((sum, sale) => sum + (sale.profit || 0), 0),
+        orderCount: sales.length
+    };
+}
+
+function calculateProductSales(sales) {
+    const productMap = {};
+    
+    sales.forEach(sale => {
+        if (sale.items) {
+            sale.items.forEach(item => {
+                const key = item.productId || item.productName;
+                if (!productMap[key]) {
+                    productMap[key] = {
+                        productName: item.productName,
+                        productIcon: item.productIcon || '📦',
+                        quantity: 0,
+                        totalSales: 0,
+                        totalCost: 0,
+                        profit: 0
+                    };
+                }
+                productMap[key].quantity += item.quantity || 0;
+                const unitPrice = item.unitPrice ?? item.price ?? 0;
+                const costPrice = item.costPrice ?? item.cost ?? 0;
+                productMap[key].totalSales += unitPrice * (item.quantity || 0);
+                productMap[key].totalCost += costPrice * (item.quantity || 0);
+                productMap[key].profit += (unitPrice - costPrice) * (item.quantity || 0);
+            });
+        }
+    });
+    
+    return Object.values(productMap).sort((a, b) => b.quantity - a.quantity);
+}
+
+/**
+ * Gün Sonu Özeti (Ödeme Metodları) Gösterimi
+ */
+function renderDailyPaymentSummary(sales) {
+    const container = document.getElementById('daily-payment-summary');
+    if (!container) return;
+
+    const paymentSummary = calculatePaymentMethodSummary(sales);
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+
+    const totalCash = paymentSummary.find(p => p.methodId === 'cash')?.totalAmount || 0;
+    const totalCreditCard = paymentSummary.find(p => p.methodId === 'credit_card')?.totalAmount || 0;
+    const totalTransfer = paymentSummary.find(p => p.methodId === 'transfer')?.totalAmount || 0;
+    const totalCredit = paymentSummary.find(p => p.methodId === 'credit')?.totalAmount || 0;
+
+    container.innerHTML = `
+        <div class="summary-cards-grid">
+            <div class="summary-card cash">
+                <div class="summary-icon">💵</div>
+                <div class="summary-label">Toplam Nakit</div>
+                <div class="summary-value">${totalCash.toFixed(2)} ₺</div>
+            </div>
+            <div class="summary-card credit-card">
+                <div class="summary-icon">💳</div>
+                <div class="summary-label">Toplam Kredi Kartı</div>
+                <div class="summary-value">${totalCreditCard.toFixed(2)} ₺</div>
+            </div>
+            <div class="summary-card transfer">
+                <div class="summary-icon">🏦</div>
+                <div class="summary-label">Toplam Havale/EFT</div>
+                <div class="summary-value">${totalTransfer.toFixed(2)} ₺</div>
+            </div>
+            <div class="summary-card credit">
+                <div class="summary-icon">🎁</div>
+                <div class="summary-label">Toplam İkram</div>
+                <div class="summary-value">${totalCredit.toFixed(2)} ₺</div>
+            </div>
+            <div class="summary-card total">
+                <div class="summary-icon">💰</div>
+                <div class="summary-label">Genel Toplam</div>
+                <div class="summary-value">${totalRevenue.toFixed(2)} ₺</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Kullanıcı × Ödeme Metodu Matrix Gösterimi
+ */
+function renderPaymentUserMatrix(sales) {
+    const tableBody = document.getElementById('payment-user-matrix-table');
+    const userFilter = document.getElementById('payment-user-filter');
+    if (!tableBody || !userFilter) return;
+
+    // Kullanıcı listesini oluştur ve filtre güncelle
+    const uniqueUsers = [...new Set(sales.map(sale => sale.createdBy || 'Bilinmeyen'))];
+    userFilter.innerHTML = '<option value="">Tüm Kullanıcılar</option>' +
+        uniqueUsers.map(user => `<option value="${escapeHtml(user)}">${escapeHtml(user)}</option>`).join('');
+
+    const paymentMethods = {
+        'cash': { name: 'Nakit', icon: '💵', color: '#4CAF50' },
+        'credit_card': { name: 'Kredi Kartı', icon: '💳', color: '#2196F3' },
+        'debit_card': { name: 'Banka Kartı', icon: '💳', color: '#FF9800' },
+        'transfer': { name: 'Havale/EFT', icon: '🏦', color: '#9C27B0' },
+        'mobile': { name: 'Mobil Ödeme', icon: '📱', color: '#E91E63' },
+        'credit': { name: 'İkram', icon: '🎁', color: '#F44336' }
+    };
+
+    // Kullanıcıların ödeme metodları toplamlarını hesapla
+    const userPaymentData = {};
+    sales.forEach(sale => {
+        const userName = sale.createdBy || 'Bilinmeyen';
+        if (!userPaymentData[userName]) {
+            userPaymentData[userName] = {
+                totalAmount: 0,
+                paymentMethods: {}
+            };
+        }
+
+        if (sale.paymentData?.payments?.length) {
+            sale.paymentData.payments.forEach(payment => {
+                const method = payment.method || 'cash';
+                const amount = payment.amount || 0;
+                if (!userPaymentData[userName].paymentMethods[method]) {
+                    userPaymentData[userName].paymentMethods[method] = 0;
+                }
+                userPaymentData[userName].paymentMethods[method] += amount;
+                userPaymentData[userName].totalAmount += amount;
+            });
+        } else if (sale.paymentMethod) {
+            const method = sale.paymentMethod.toLowerCase();
+            const amount = sale.totalAmount || 0;
+            if (!userPaymentData[userName].paymentMethods[method]) {
+                userPaymentData[userName].paymentMethods[method] = 0;
+            }
+            userPaymentData[userName].paymentMethods[method] += amount;
+            userPaymentData[userName].totalAmount += amount;
+        } else {
+            // Varsayılan olarak nakit
+            if (!userPaymentData[userName].paymentMethods['cash']) {
+                userPaymentData[userName].paymentMethods['cash'] = 0;
+            }
+            userPaymentData[userName].paymentMethods['cash'] += sale.totalAmount || 0;
+            userPaymentData[userName].totalAmount += sale.totalAmount || 0;
+        }
+    });
+
+    const selectedUser = userFilter.value;
+    const filteredUsers = selectedUser ? [selectedUser] : uniqueUsers;
+
+    tableBody.innerHTML = filteredUsers.map(userName => {
+        const userData = userPaymentData[userName];
+        const paymentRows = Object.entries(paymentMethods).map(([methodId, methodInfo]) => {
+            const amount = userData?.paymentMethods[methodId] || 0;
+            return `<td class="numeric">${amount.toFixed(2)} ₺</td>`;
+        });
+        const total = userData?.totalAmount || 0;
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(userName)}</strong></td>
+                ${paymentRows.join('')}
+                <td class="numeric total"><strong>${total.toFixed(2)} ₺</strong></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * Detaylı İşlem Listesi (Filtrelenebilir)
+ */
+function renderTransactionDetails(sales) {
+    const tableBody = document.getElementById('transaction-details-table');
+    const userFilter = document.getElementById('transaction-user-filter');
+    const methodFilter = document.getElementById('transaction-method-filter');
+    const searchInput = document.getElementById('transaction-search');
+    const countInfo = document.getElementById('transaction-count-info');
+    
+    if (!tableBody) return;
+
+    // Kullanıcı listesini oluştur
+    const uniqueUsers = [...new Set(sales.map(sale => sale.createdBy || 'Bilinmeyen'))];
+    if (userFilter) {
+        userFilter.innerHTML = '<option value="">Tümü</option>' +
+            uniqueUsers.map(user => `<option value="${escapeHtml(user)}">${escapeHtml(user)}</option>`).join('');
+    }
+
+    // Filtrele
+    let filteredSales = [...sales];
+    
+    const selectedUser = userFilter?.value;
+    if (selectedUser) {
+        filteredSales = filteredSales.filter(sale => sale.createdBy === selectedUser);
+    }
+
+    const selectedMethod = methodFilter?.value;
+    if (selectedMethod) {
+        filteredSales = filteredSales.filter(sale => {
+            if (sale.paymentData?.payments?.length) {
+                return sale.paymentData.payments.some(p => p.method === selectedMethod);
+            }
+            return sale.paymentMethod === selectedMethod;
+        });
+    }
+
+    const searchTerm = searchInput?.value?.toLowerCase();
+    if (searchTerm) {
+        filteredSales = filteredSales.filter(sale => {
+            const itemsStr = sale.items?.map(item =>
+                item.productName?.toLowerCase() + ' ' + item.productIcon
+            ).join(' ') || '';
+            return sale.createdBy?.toLowerCase().includes(searchTerm) ||
+                   itemsStr.toLowerCase().includes(searchTerm) ||
+                   (sale.totalAmount?.toString().includes(searchTerm));
+        });
+    }
+
+    // Zamanına göre sırala (yeniden eskiye)
+    filteredSales.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    tableBody.innerHTML = filteredSales.map(sale => {
+        // Ödeme metodlarını göster
+        const paymentDisplay = sale.paymentData?.payments?.length
+            ? sale.paymentData.payments.map(payment => {
+                const methodIcons = {
+                    'cash': '💵', 'credit_card': '💳', 'debit_card': '💳',
+                    'transfer': '🏦', 'mobile': '📱', 'credit': '🎁'
+                };
+                const methodNames = {
+                    'cash': 'Nakit', 'credit_card': 'Kredi Kartı', 'debit_card': 'Banka Kartı',
+                    'transfer': 'Havale/EFT', 'mobile': 'Mobil Ödeme', 'credit': 'İkram'
+                };
+                return `${methodIcons[payment.method || 'cash']} ${methodNames[payment.method || 'cash']}: ${(payment.amount || 0).toFixed(2)} ₺`;
+            }).join(', ')
+            : `${sale.paymentMethod || 'Nakit'} ${(sale.totalAmount || 0).toFixed(2)} ₺`;
+
+        const itemsStr = sale.items.map(item =>
+            `${item.productIcon} ${item.productName} ×${item.quantity}`
+        ).join(', ');
+
+        return `
+            <tr>
+                <td>${formatTime(new Date(sale.createdAt))}</td>
+                <td>${sale.createdBy || 'Bilinmeyen'}</td>
+                <td class="numeric">${(sale.totalAmount || 0).toFixed(2)} ₺</td>
+                <td>${paymentDisplay}</td>
+                <td>${itemsStr}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Filtre bilgisi göster
+    if (countInfo) {
+        countInfo.textContent = `Toplam ${filteredSales.length} işlem gösteriliyor`;
+    }
+}
+
+/**
+ * Ödeme metodlarına göre filtrele
+ */
+function filterTransactions() {
+    const dateInput = document.getElementById('report-date');
+    const selectedDate = dateInput ? dateInput.value : new Date();
+    
+    getSalesByDate(selectedDate).then(sales => {
+        renderTransactionDetails(sales);
+    });
+}
+
+/**
+ * Kullanıcıya göre ödeme metodları matrix filtrele
+ */
+function filterPaymentByUser() {
+    const dateInput = document.getElementById('report-date');
+    const selectedDate = dateInput ? dateInput.value : new Date();
+    
+    getSalesByDate(selectedDate).then(sales => {
+        renderPaymentUserMatrix(sales);
+    });
+}

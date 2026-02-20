@@ -2896,7 +2896,7 @@ body {
     color: white;
 }
 
-/* Sipariş geçmişi kullanıc�� badge'i */
+/* Sipariş geçmişi kullanıcı badge'i */
 .user-badge {
     display: inline-flex;
     align-items: center;
@@ -2907,4 +2907,215 @@ body {
     color: white;
     border-radius: 50%;
     font-size: 0.75rem;
+}
+
+/* ============================
+   YENİ ÖDEME ANALİZİ STİLLERİ
+   ============================ */
+
+/* Gün Sonu Özeti */
+.daily-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.summary-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.summary-card {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.summary-card .summary-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.summary-card .summary-label {
+    font-size: 0.9rem;
+    color: var(--color-text-light);
+    margin-bottom: 0.5rem;
+}
+
+.summary-card .summary-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.summary-card.cash .summary-value { color: #4CAF50; }
+.summary-card.credit-card .summary-value { color: #2196F3; }
+.summary-card.transfer .summary-value { color: #9C27B0; }
+.summary-card.credit .summary-value { color: #F44336; }
+.summary-card.total {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+}
+
+.summary-card.total .summary-value {
+    color: white;
+}
+
+/* Kullanıcı × Ödeme Metodu Matrix */
+.payment-method-matrix {
+    font-size: 0.9rem;
+}
+
+.payment-method-matrix th {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+    font-weight: 600;
+    padding: 0.8rem;
+}
+
+.payment-method-matrix td {
+    padding: 0.8rem;
+}
+
+.payment-method-matrix tr:hover {
+    background: var(--color-bg);
+}
+
+.payment-method-matrix .total {
+    font-weight: 700;
+    color: var(--color-primary);
+    background: rgba(111, 78, 55, 0.1);
+}
+
+/* Filtre Kontrolleri */
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 150px;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 0.6rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: all 0.2s ease;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(111, 78, 55, 0.1);
+}
+
+/* Detaylı İşlem Listesi */
+#transaction-details-table {
+    font-size: 0.9rem;
+}
+
+#transaction-details-table th {
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    padding: 0.8rem;
+    text-align: left;
+}
+
+#transaction-details-table td {
+    padding: 0.8rem;
+    vertical-align: middle;
+}
+
+#transaction-details-table tbody tr:hover {
+    background: var(--color-bg);
+}
+
+#transaction-details-table .numeric {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+#transaction-count-info {
+    font-style: italic;
+    color: var(--color-text-light);
+    margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .daily-summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .summary-cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .summary-card {
+        padding: 1rem;
+    }
+    
+    .summary-card .summary-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .summary-card .summary-value {
+        font-size: 1.2rem;
+    }
+    
+    .payment-method-matrix {
+        font-size: 0.8rem;
+    }
+    
+    .payment-method-matrix th,
+    .payment-method-matrix td {
+        padding: 0.5rem;
+    }
+    
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-group {
+        min-width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .daily-summary-grid,
+    .summary-cards-grid {
+        grid-template-columns: 1fr;
+    }
 }
