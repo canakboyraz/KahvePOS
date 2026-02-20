@@ -54,9 +54,10 @@ async function loadReport() {
     if (totalProfitEl) totalProfitEl.textContent = summary.totalProfit.toFixed(2) + ' ₺';
     if (orderCountEl) orderCountEl.textContent = summary.orderCount;
     
-    // Grafiği yükle
-    // TODO: loadHourlySalesChart fonksiyonu henüz tanımlı değil
-    // await loadHourlySalesChart(selectedDate);
+    // Grafiği yükle (dashboard.js'ten)
+    if (typeof loadHourlySalesChart === 'function') {
+        await loadHourlySalesChart(selectedDate);
+    }
     
     // Top 10 listesi
     await loadTop10Products(selectedDate, sales);
