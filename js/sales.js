@@ -326,19 +326,24 @@ async function addSale(saleData) {
     Storage.saveSales(localSalesCache);
 
     // Supabase'e kaydet
-    console.log('Supabase baglanti kontrolu:', {
+    console.log('🔍 SUPABASE KONTROL BAŞLIYOR...', {
         supabaseDefined: typeof window.supabase !== 'undefined',
         supabaseExists: !!window.supabase,
         isOnline: salesIsOnline,
-        checkResult: salesCheckSupabaseConnection()
+        checkResult: salesCheckSupabaseConnection(),
+        supabaseFromWindow: !!window.supabase,
+        supabaseFrom: window.supabase ? 'found' : 'NOT FOUND'
     });
 
     if (salesCheckSupabaseConnection()) {
+        console.log('✅ Supabase bağlantısı var, kayıt deneniyor...');
         try {
             const { data, error } = await insertSaleToSupabase(newSale, { includeId: false });
 
+            console.log('📊 INSERT SONUCU:', { data, error });
+
             if (error) {
-                console.error('Supabase INSERT error:', error);
+                console.error('❌ Supabase INSERT error:', error);
                 throw error;
             }
 
@@ -351,13 +356,14 @@ async function addSale(saleData) {
                     Storage.saveSales(localSalesCache);
                 }
             }
-            console.log("Satis Supabase'e kaydedildi:", data);
+            console.log("✅ Satis Supabase'e kaydedildi:", data);
         } catch (error) {
-            console.error('Supabase satis ekleme hatasi:', error.message || error);
+            console.error('❌ Supabase satis ekleme hatasi:', error.message || error);
+            console.error('❌ HATA DETAYI:', error);
             addSalesToOfflineQueue('add', newSale);
         }
     } else {
-        console.warn('Supabase baglantisi yok, offline kuyruga ekleniyor');
+        console.warn('⚠️ Supabase baglantisi yok, offline kuyruga ekleniyor');
         addSalesToOfflineQueue('add', newSale);
     }
 
