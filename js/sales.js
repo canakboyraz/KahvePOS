@@ -264,6 +264,7 @@ async function getAllSales() {
                     profit: s.profit,
                     discountAmount: s.discount_amount || 0,
                     paymentMethod: s.payment_method,
+                    payment_method_text: s.payment_method_text, // Ödeme yöntemi metni
                     createdBy: s.created_by,
                     createdAt: s.created_at,
                     updatedAt: s.updated_at,

@@ -603,7 +603,7 @@ function renderOrdersTable(sales) {
  */
 function getPaymentMethodIcon(method) {
     const icons = {
-        // Türkçe isimler
+        // Türkçe isimler (normal)
         'Nakit': '💵',
         'Kredi Kartı': '💳',
         'Banka Kartı': '💳',
@@ -611,6 +611,14 @@ function getPaymentMethodIcon(method) {
         'Mobil Ödeme': '📱',
         'İkram': '🎁',
         'Borç/Veresiye': '📝',
+        // Türkçe isimler (büyük harf - eski veri)
+        'NAKIT': '💵',
+        'KREDİ KARTI': '💳',
+        'BANKA KARTI': '💳',
+        'HAVALE/EFT': '🏦',
+        'MOBİL ÖDEME': '📱',
+        'İKRAM': '🎁',
+        'BORÇ/VERESİYE': '📝',
         // İngilizce ID'ler (Payment objesinden)
         'cash': '💵',
         'credit_card': '💳',
@@ -635,7 +643,7 @@ function getPaymentMethodIcon(method) {
  */
 function getPaymentMethodColor(method) {
     const colors = {
-        // Türkçe isimler
+        // Türkçe isimler (normal)
         'Nakit': '#4CAF50',
         'Kredi Kartı': '#2196F3',
         'Banka Kartı': '#FF9800',
@@ -643,6 +651,14 @@ function getPaymentMethodColor(method) {
         'Mobil Ödeme': '#E91E63',
         'İkram': '#F44336',
         'Borç/Veresiye': '#757575',
+        // Türkçe isimler (büyük harf - eski veri)
+        'NAKIT': '#4CAF50',
+        'KREDİ KARTI': '#2196F3',
+        'BANKA KARTI': '#FF9800',
+        'HAVALE/EFT': '#9C27B0',
+        'MOBİL ÖDEME': '#E91E63',
+        'İKRAM': '#F44336',
+        'BORÇ/VERESİYE': '#757575',
         // İngilizce ID'ler (Payment objesinden)
         'cash': '#4CAF50',
         'credit_card': '#2196F3',
