@@ -55,10 +55,11 @@ async function loadReport() {
     if (orderCountEl) orderCountEl.textContent = summary.orderCount;
     
     // Grafiği yükle
-    await loadHourlySalesChart(selectedDate);
+    // TODO: loadHourlySalesChart fonksiyonu henüz tanımlı değil
+    // await loadHourlySalesChart(selectedDate);
     
     // Top 10 listesi
-    await loadTop10Products(selectedDate);
+    await loadTop10Products(selectedDate, sales);
     
     // Ürün bazlı satış tablosu
     renderProductSalesTable(productSales);
