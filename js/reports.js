@@ -179,8 +179,16 @@ function calculatePaymentMethodSummary(sales) {
             });
         } else if (sale.paymentMethod) {
             // Tek ödeme yöntemi (eski format)
-            const methodId = sale.paymentMethod.toLowerCase();
-            const methodInfo = paymentMethods[methodId] || { name: sale.paymentMethod, icon: '📦' };
+            let paymentMethodKey = sale.paymentMethod;
+            
+            // paymentMethod array ise, ilk elemanı al
+            if (Array.isArray(sale.paymentMethod) && sale.paymentMethod.length > 0) {
+                paymentMethodKey = sale.paymentMethod[0].method || sale.paymentMethod[0].methodName || 'cash';
+            }
+            
+            // String ise kullan
+            const methodId = typeof paymentMethodKey === 'string' ? paymentMethodKey.toLowerCase() : 'cash';
+            const methodInfo = paymentMethods[methodId] || { name: paymentMethodKey, icon: '📦' };
             
             if (!summary[methodId]) {
                 summary[methodId] = {
