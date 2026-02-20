@@ -598,3 +598,10 @@ window.Sales = {
     exportSalesToCSV,
     downloadSalesCSV
 };
+
+// 🚀 KRITIK FIX: Global scope'ta direkt erişim için (cart.js tarafından çağrıldığı için)
+window.addSale = addSale;
+window.getAllSales = getAllSales;
+window.getSalesByDate = getSalesByDate;
+window.getTodaySales = getTodaySales;
+window.deleteSale = deleteSale;

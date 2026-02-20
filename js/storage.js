@@ -104,3 +104,6 @@ const Storage = {
         this.remove(this.KEYS.FIRST_LOAD);
     }
 };
+
+// Global erişim için
+window.Storage = Storage;
