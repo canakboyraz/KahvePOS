@@ -599,9 +599,13 @@ window.Sales = {
     downloadSalesCSV
 };
 
-// 🚀 KRITIK FIX: Global scope'ta direkt erişim için (cart.js tarafından çağrıldığı için)
+// 🚀 KRITIK FIX: Global scope'ta direkt erişim için (cart.js ve reports.js tarafından çağrıldığı için)
 window.addSale = addSale;
 window.getAllSales = getAllSales;
 window.getSalesByDate = getSalesByDate;
 window.getTodaySales = getTodaySales;
 window.deleteSale = deleteSale;
+window.getSalesByDateRange = getSalesByDateRange;
+window.getLastNDaysSales = getLastNDaysSales;
+window.calculateDailySummary = calculateDailySummary;
+window.calculateProductSales = calculateProductSales;

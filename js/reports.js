@@ -266,14 +266,29 @@ function renderPaymentMethodChart(sales) {
 }
 
 // Dönem seçici
-async function setReportPeriod(period) {
+async function setReportPeriod(period, clickedElement = null) {
     currentReportPeriod = period;
     
-    // Butonları güncelle
+    // Butonları güncelle (event parametresi olmadan çalışması için)
     document.querySelectorAll('.period-tab').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    
+    // Tıklanan butonu bul ve active ekle
+    if (clickedElement) {
+        clickedElement.classList.add('active');
+    } else {
+        // Event parametresi yoksa, data-period atributuna göre bul
+        const buttons = document.querySelectorAll('.period-tab');
+        buttons.forEach(btn => {
+            if (btn.textContent.includes(
+                period === 'today' ? 'Bugün' :
+                period === 'week' ? 'Hafta' : 'Ay'
+            )) {
+                btn.classList.add('active');
+            }
+        });
+    }
     
     // Tarihi ayarla
     const dateInput = document.getElementById('report-date');
@@ -1013,27 +1028,92 @@ function formatTime(date) {
 }
 
 async function getSalesByDate(date) {
-    // Bu fonksiyonun gerçek uygulamada veritabanından satışları getirecek
-    // Şimdik örnek veri döndür
+    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
+    if (typeof window.Sales !== 'undefined' && window.Sales.getSalesByDate) {
+        return await window.Sales.getSalesByDate(date);
+    }
+    // Fallback: doğrudan global fonksiyon
+    if (typeof window.getSalesByDate === 'function') {
+        return await window.getSalesByDate(date);
+    }
     return [];
 }
 
 async function getSalesByDateRange(startDate, endDate) {
-    // Bu fonksiyonun gerçek uygulamada veri tabanından satışları getirecek
+    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
+    if (typeof window.Sales !== 'undefined' && window.Sales.getSalesByDateRange) {
+        return await window.Sales.getSalesByDateRange(startDate, endDate);
+    }
+    // Fallback: doğrudan global fonksiyon
+    if (typeof window.getSalesByDateRange === 'function') {
+        return await window.getSalesByDateRange(startDate, endDate);
+    }
     return [];
 }
 
 async function getLastNDaysSales(days) {
-    // Bu fonksiyonun gerçek uygulamada son N günün satışlarını getirecek
+    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
+    if (typeof window.Sales !== 'undefined' && window.Sales.getLastNDaysSales) {
+        return await window.Sales.getLastNDaysSales(days);
+    }
+    // Fallback: doğrudan global fonksiyon
+    if (typeof window.getLastNDaysSales === 'function') {
+        return await window.getLastNDaysSales(days);
+    }
     return [];
 }
 
 async function loadTop10Products(date, salesData) {
-    // Bu fonksiyonun gerçek uygulamada en çok satılan ürünleri yükleyecek
-    // Şimdik boş bir container doldur
-    const top10Container = document.getElementById('top10-list');
-    if (top10Container) {
-        top10Container.innerHTML = '<p style="color: var(--color-text-light);">Yükleniyor...</p>';
+    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
+    if (typeof window.Sales !== 'undefined' && window.Sales.calculateProductSales) {
+        const productSales = window.Sales.calculateProductSales(salesData || []);
+        const top10 = productSales.slice(0, 10);
+        
+        const top10Container = document.getElementById('top10-list');
+        if (!top10Container) return;
+        
+        if (top10.length === 0) {
+            top10Container.innerHTML = '<p style="color: var(--color-text-light);">Henüz satış verisi yok</p>';
+            return;
+        }
+        
+        top10Container.innerHTML = top10.map((item, index) => `
+            <div class="top-product-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--color-bg-hover); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                <span class="rank" style="font-weight: bold; color: var(--color-primary); min-width: 24px;">${index + 1}</span>
+                <span class="icon" style="font-size: 1.5rem;">${item.productIcon}</span>
+                <div class="details" style="flex: 1; min-width: 0;">
+                    <div class="name" style="font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.productName)}</div>
+                    <div class="stats" style="font-size: 0.85rem; color: var(--color-text-light);">${item.quantity} adet • ${item.totalSales.toFixed(2)} ₺</div>
+                </div>
+            </div>
+        `).join('');
+    } else if (typeof window.calculateProductSales === 'function') {
+        // Fallback: doğrudan global fonksiyon
+        const productSales = window.calculateProductSales(salesData || []);
+        // ... aynı render işlemi
+    } else {
+        // Final fallback: local calculateProductSales
+        const productSales = calculateProductSales(salesData || []);
+        const top10 = productSales.slice(0, 10);
+        
+        const top10Container = document.getElementById('top10-list');
+        if (!top10Container) return;
+        
+        if (top10.length === 0) {
+            top10Container.innerHTML = '<p style="color: var(--color-text-light);">Henüz satış verisi yok</p>';
+            return;
+        }
+        
+        top10Container.innerHTML = top10.map((item, index) => `
+            <div class="top-product-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--color-bg-hover); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                <span class="rank" style="font-weight: bold; color: var(--color-primary); min-width: 24px;">${index + 1}</span>
+                <span class="icon" style="font-size: 1.5rem;">${item.productIcon}</span>
+                <div class="details" style="flex: 1; min-width: 0;">
+                    <div class="name" style="font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.productName)}</div>
+                    <div class="stats" style="font-size: 0.85rem; color: var(--color-text-light);">${item.quantity} adet • ${item.totalSales.toFixed(2)} ₺</div>
+                </div>
+            </div>
+        `).join('');
     }
 }
 
