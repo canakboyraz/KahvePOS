@@ -56,7 +56,7 @@ function buildSupabaseInsertPayload(newSale, options = {}) {
     const createdAt = newSale.createdAt || new Date().toISOString();
     
     // Debug: createdAt değerini kontrol et
-    console.log('🔍 formatDate GİRİŞ:', { createdAt, typeof: typeof createdAt });
+    console.log('🔍 salesFormatDate GİRİŞ:', { createdAt, typeof: typeof createdAt });
     
     const basePayload = {
         total_amount: newSale.totalAmount || 0,
@@ -64,7 +64,7 @@ function buildSupabaseInsertPayload(newSale, options = {}) {
         payment_method: paymentMethodJsonb,
         items: newSale.items || [],
         created_at: createdAt,
-        sale_date: formatDate(createdAt)
+        sale_date: salesFormatDate(createdAt)
     };
 
     if (options.includeId && newSale.id) {
@@ -410,12 +410,12 @@ function getCurrentUserId() {
 
 // ===== TARİH FORMATLAMA =====
 
-function formatDate(date) {
+function salesFormatDate(date) {
     const d = new Date(date);
     
     // Geçersiz tarih kontrolü
     if (isNaN(d.getTime())) {
-        console.warn('⚠️ Geçersiz formatDate girişi:', date);
+        console.warn('⚠️ Geçersiz salesFormatDate girişi:', date);
         // Bugünün tarihini kullan
         const today = new Date();
         const year = today.getFullYear();
