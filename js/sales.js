@@ -54,6 +54,10 @@ function buildSupabaseInsertPayload(newSale, options = {}) {
     const paymentMethodJsonb = normalizePaymentMethod(newSale);
     const userId = getCurrentSupabaseUserId();
     const createdAt = newSale.createdAt || new Date().toISOString();
+    
+    // Debug: createdAt değerini kontrol et
+    console.log('🔍 formatDate GİRİŞ:', { createdAt, typeof: typeof createdAt });
+    
     const basePayload = {
         total_amount: newSale.totalAmount || 0,
         total_cost: newSale.totalCost || 0,
