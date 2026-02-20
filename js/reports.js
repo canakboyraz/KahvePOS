@@ -599,32 +599,64 @@ function renderOrdersTable(sales) {
 
 /**
  * Ödeme metodu simgesi
+ * Hem Türkçe isimler hem de İngilizce ID'leri destekler
  */
 function getPaymentMethodIcon(method) {
     const icons = {
+        // Türkçe isimler
         'Nakit': '💵',
         'Kredi Kartı': '💳',
         'Banka Kartı': '💳',
         'Havale/EFT': '🏦',
         'Mobil Ödeme': '📱',
         'İkram': '🎁',
-        'Borç/Veresiye': '📝'
+        'Borç/Veresiye': '📝',
+        // İngilizce ID'ler (Payment objesinden)
+        'cash': '💵',
+        'credit_card': '💳',
+        'debit_card': '💳',
+        'transfer': '🏦',
+        'mobile': '📱',
+        'credit': '🎁',
+        // Büyük harf ID'ler
+        'CASH': '💵',
+        'CREDIT_CARD': '💳',
+        'DEBIT_CARD': '💳',
+        'TRANSFER': '🏦',
+        'MOBILE': '📱',
+        'CREDIT': '🎁'
     };
     return icons[method] || '💰';
 }
 
 /**
  * Ödeme metodu rengi
+ * Hem Türkçe isimler hem de İngilizce ID'leri destekler
  */
 function getPaymentMethodColor(method) {
     const colors = {
+        // Türkçe isimler
         'Nakit': '#4CAF50',
         'Kredi Kartı': '#2196F3',
         'Banka Kartı': '#FF9800',
         'Havale/EFT': '#9C27B0',
         'Mobil Ödeme': '#E91E63',
         'İkram': '#F44336',
-        'Borç/Veresiye': '#757575'
+        'Borç/Veresiye': '#757575',
+        // İngilizce ID'ler (Payment objesinden)
+        'cash': '#4CAF50',
+        'credit_card': '#2196F3',
+        'debit_card': '#FF9800',
+        'transfer': '#9C27B0',
+        'mobile': '#E91E63',
+        'credit': '#F44336',
+        // Büyük harf ID'ler
+        'CASH': '#4CAF50',
+        'CREDIT_CARD': '#2196F3',
+        'DEBIT_CARD': '#FF9800',
+        'TRANSFER': '#9C27B0',
+        'MOBILE': '#E91E63',
+        'CREDIT': '#F44336'
     };
     return colors[method] || '#757575';
 }
