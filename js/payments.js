@@ -1,6 +1,6 @@
 /**
  * Payments.js
- * Ödeme Yöntemleri Yönetimi Modülü - KahvePOS v3.0
+ * Ödeme Yöntemleri Yönetimi Modülü - KahvePOS v4.0
  * 
  * Özellikler:
  * - Çoklu ödeme yöntemi desteği
@@ -342,3 +342,4 @@ function formatDateForPayment(date) {
 if (typeof window !== 'undefined') {
     window.Payment = Payment;
 }
+

@@ -1,6 +1,6 @@
 /**
  * Reports.js
- * Raporlama modülü - v3.0
+ * Raporlama modülü - v4.0
  * Grafik ve dönem filtreleme ile
  */
 
@@ -1493,3 +1493,4 @@ function filterPaymentByUser() {
         renderPaymentUserMatrix(sales);
     });
 }
+

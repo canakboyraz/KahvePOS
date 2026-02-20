@@ -1,7 +1,7 @@
 /**
  * OKC.js
  * Yazar Kasa (ÖKC) Entegrasyon Modülü - Hugin Bridge Bağlantısı
- * KahvePOS v3.0
+ * KahvePOS v4.0
  */
 
 const OKC = {
@@ -339,3 +339,4 @@ if (typeof window !== 'undefined') {
         OKC.init();
     });
 }
+

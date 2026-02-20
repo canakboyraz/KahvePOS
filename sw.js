@@ -3,7 +3,7 @@
  * Offline support and caching
  */
 
-const CACHE_NAME = 'kahvepos-v3.0';
+const CACHE_NAME = 'kahvepos-v4.0';
 const urlsToCache = [
     '/',
     '/index.html',

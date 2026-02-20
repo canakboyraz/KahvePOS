@@ -514,3 +514,4 @@ const FirebaseService = {
 
 // Global erişim için
 window.FirebaseService = FirebaseService;
+

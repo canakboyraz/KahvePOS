@@ -632,3 +632,4 @@ window.getSalesByDateRange = getSalesByDateRange;
 window.getLastNDaysSales = getLastNDaysSales;
 window.calculateDailySummary = calculateDailySummary;
 window.calculateProductSales = calculateProductSales;
+

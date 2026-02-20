@@ -107,3 +107,4 @@ const Storage = {
 
 // Global erişim için
 window.Storage = Storage;
+

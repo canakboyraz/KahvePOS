@@ -629,3 +629,4 @@ openSettingsModal = function() {
 document.addEventListener('DOMContentLoaded', () => {
     initSettings();
 });
+

@@ -1,6 +1,6 @@
 /**
  * App.js
- * Ana uygulama yönetimi - v3.0
+ * Ana uygulama yönetimi - v4.0
  * Klavye kısayolları, PWA, gelişmiş özellikler
  */
 
@@ -623,7 +623,7 @@ function initPWA() {
 // ===== BAŞLANGIÇ =====
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎯 KahvePOS v3.0 Başlatılıyor...');
+    console.log('🎯 KahvePOS v4.0 Başlatılıyor...');
     
     // Ürünleri yükle
     loadProducts();
@@ -684,7 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSessionInfo();
     }
     
-    console.log('✅ KahvePOS v3.0 Hazır!');
+    console.log('✅ KahvePOS v4.0 Hazır!');
 });
 
 // ===== GLOBAL DEĞİŞKENLER =====
@@ -745,5 +745,6 @@ window.KahvePOS = {
     }
 };
 
-console.log('%c🎯 KahvePOS v3.0 - Gelişmiş Özellikler', 'font-size: 16px; font-weight: bold; color: #6F4E37;');
+console.log('%c🎯 KahvePOS v4.0 - Gelişmiş Özellikler', 'font-size: 16px; font-weight: bold; color: #6F4E37;');
 console.log('%cKısayolları görmek için: KahvePOS.shortcuts()', 'font-size: 12px; color: #757575;');
+

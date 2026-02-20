@@ -1,6 +1,6 @@
 /**
  * Cart.js
- * Sepet yönetimi modülü - v3.0
+ * Sepet yönetimi modülü - v4.0
  * İndirim, müşteri notu ve gelişmiş özellikler
  */
 
@@ -640,3 +640,4 @@ function quickClearCart() {
     renderCart();
     showToast('Sepet temizlendi', 'warning');
 }
+

@@ -539,3 +539,4 @@ const SupabaseService = {
 
 // Global erişim için
 window.SupabaseService = SupabaseService;
+

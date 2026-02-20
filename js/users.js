@@ -717,3 +717,4 @@ window.Users = {
     isLoggedIn,
     isAdmin
 };
+

@@ -458,3 +458,4 @@ window.checkout = function() {
     refreshDashboard();
     return result;
 };
+
