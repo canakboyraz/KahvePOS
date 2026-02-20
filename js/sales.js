@@ -408,6 +408,18 @@ function getCurrentUserId() {
 
 function formatDate(date) {
     const d = new Date(date);
+    
+    // Geçersiz tarih kontrolü
+    if (isNaN(d.getTime())) {
+        console.warn('⚠️ Geçersiz formatDate girişi:', date);
+        // Bugünün tarihini kullan
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
