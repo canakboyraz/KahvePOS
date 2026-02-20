@@ -551,8 +551,31 @@ function renderOrdersTable(sales) {
         
         const userName = sale.createdBy || 'Bilinmeyen';
         
-        // Ödeme metodu badge'i
-        const paymentMethodText = sale.payment_method_text || 'Bilinmiyor';
+        // Ödeme metodu belirleme (farklı kaynaklardan)
+        let paymentMethodText = '';
+        
+        // 1. Önce payment_method_text kontrol et
+        if (sale.payment_method_text) {
+            paymentMethodText = sale.payment_method_text;
+        }
+        // 2. paymentMethod string ise direkt kullan
+        else if (typeof sale.paymentMethod === 'string') {
+            paymentMethodText = sale.paymentMethod;
+        }
+        // 3. paymentMethod array ise ilk elemanı al
+        else if (Array.isArray(sale.paymentMethod) && sale.paymentMethod.length > 0) {
+            const firstPayment = sale.paymentMethod[0];
+            paymentMethodText = firstPayment.method || firstPayment.methodName || 'Nakit';
+        }
+        // 4. paymentData varsa oradan al
+        else if (sale.paymentData) {
+            paymentMethodText = sale.paymentData.methodName || sale.paymentData.method || 'Nakit';
+        }
+        // 5. Hiçbiri yoksa varsayılan
+        else {
+            paymentMethodText = 'Nakit';
+        }
+        
         const paymentMethodIcon = getPaymentMethodIcon(paymentMethodText);
         const paymentMethodBadge = `<span class="payment-method-badge" style="background: ${getPaymentMethodColor(paymentMethodText)}; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.85rem; color: white; white-space: nowrap;">${paymentMethodIcon} ${paymentMethodText}</span>`;
         
