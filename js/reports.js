@@ -514,7 +514,7 @@ function renderOrdersTable(sales) {
     if (sales.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; color: var(--color-text-light);">
+                <td colspan="6" style="text-align: center; color: var(--color-text-light);">
                     Sipariş bulunmuyor
                 </td>
             </tr>
@@ -536,6 +536,11 @@ function renderOrdersTable(sales) {
         
         const userName = sale.createdBy || 'Bilinmeyen';
         
+        // Ödeme metodu badge'i
+        const paymentMethodText = sale.payment_method_text || 'Bilinmiyor';
+        const paymentMethodIcon = getPaymentMethodIcon(paymentMethodText);
+        const paymentMethodBadge = `<span class="payment-method-badge" style="background: ${getPaymentMethodColor(paymentMethodText)}; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.85rem; color: white; white-space: nowrap;">${paymentMethodIcon} ${paymentMethodText}</span>`;
+        
         return `
             <tr>
                 <td>${formatTime(new Date(sale.createdAt))}</td>
@@ -547,10 +552,43 @@ function renderOrdersTable(sales) {
                 </td>
                 <td>${itemsStr}${noteDisplay}</td>
                 <td class="numeric">${sale.totalAmount.toFixed(2)} ₺</td>
+                <td>${paymentMethodBadge}</td>
                 <td>${sale.customerNote || '-'}</td>
             </tr>
         `;
     }).join('');
+}
+
+/**
+ * Ödeme metodu simgesi
+ */
+function getPaymentMethodIcon(method) {
+    const icons = {
+        'Nakit': '💵',
+        'Kredi Kartı': '💳',
+        'Banka Kartı': '💳',
+        'Havale/EFT': '🏦',
+        'Mobil Ödeme': '📱',
+        'İkram': '🎁',
+        'Borç/Veresiye': '📝'
+    };
+    return icons[method] || '💰';
+}
+
+/**
+ * Ödeme metodu rengi
+ */
+function getPaymentMethodColor(method) {
+    const colors = {
+        'Nakit': '#4CAF50',
+        'Kredi Kartı': '#2196F3',
+        'Banka Kartı': '#FF9800',
+        'Havale/EFT': '#9C27B0',
+        'Mobil Ödeme': '#E91E63',
+        'İkram': '#F44336',
+        'Borç/Veresiye': '#757575'
+    };
+    return colors[method] || '#757575';
 }
 
 // Kullanıcı bazlı satış tablosunu oluştur
