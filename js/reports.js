@@ -27,7 +27,19 @@ async function loadReport() {
     const dateInput = document.getElementById('report-date');
     const selectedDate = dateInput ? dateInput.value : new Date();
     
+    console.log('📊 RAPOR YÜKLEME:', {
+        selectedDate,
+        dateInputValue: dateInput?.value,
+        currentReportPeriod
+    });
+    
     const sales = await getSalesByDate(selectedDate);
+    
+    console.log('📊 SATIŞ VERİSİ:', {
+        salesCount: sales.length,
+        sales: sales.slice(0, 3) // İlk 3 satışı göster
+    });
+    
     const summary = calculateDailySummary(sales);
     const productSales = calculateProductSales(sales);
     
