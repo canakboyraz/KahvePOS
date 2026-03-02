@@ -493,13 +493,25 @@ function salesFormatDate(date) {
     if (typeof DateUtils !== 'undefined') {
         return DateUtils.formatDate(date);
     }
-    // Fallback
+    // Fallback: Eski formatDate fonksiyonu
     const d = new Date(date);
     if (isNaN(d.getTime())) {
+        console.warn('⚠️ salesFormatDate geçersiz tarih:', date);
         const today = new Date();
-        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Global formatDate fonksiyonu (legacy kod için)
+function formatDate(date) {
+    return salesFormatDate(date);
 }
 
 function formatTime(date) {

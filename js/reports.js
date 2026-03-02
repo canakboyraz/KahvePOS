@@ -1499,9 +1499,35 @@ function filterTransactions() {
 function filterPaymentByUser() {
     const dateInput = document.getElementById('report-date');
     const selectedDate = dateInput ? dateInput.value : new Date();
-    
     getSalesByDate(selectedDate).then(sales => {
         renderPaymentUserMatrix(sales);
     });
 }
+
+/**
+ * Bugünün tarihini input'a set et
+ */
+function setTodayDate() {
+    const dateInput = document.getElementById('report-date');
+    if (dateInput) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        dateInput.value = `${year}-${month}-${day}`;
+        loadReport();
+    }
+}
+
+// ===== GLOBAL EXPORT =====
+// HTML onclick="" ile çağrılabilmesi için window'a bağla
+window.loadReport = loadReport;
+window.setReportPeriod = setReportPeriod;
+window.setTodayDate = setTodayDate;
+window.filterTransactions = filterTransactions;
+window.filterPaymentByUser = filterPaymentByUser;
+window.renderTransactionDetails = renderTransactionDetails;
+window.formatDate = formatDate;
+window.formatDateDisplay = formatDateDisplay;
+
 
