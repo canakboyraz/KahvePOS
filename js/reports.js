@@ -232,8 +232,8 @@ function calculatePaymentMethodSummary(sales) {
  * Ödeme Metodları Grafiği
  */
 function renderPaymentMethodChart(sales) {
-    const ctx = document.getElementById('payment-methods-chart');
-    if (!ctx) return;
+    const canvasEl = document.getElementById('payment-methods-chart');
+    if (!canvasEl) return;
 
     const paymentSummary = calculatePaymentMethodSummary(sales);
     
@@ -241,9 +241,19 @@ function renderPaymentMethodChart(sales) {
         return;
     }
 
+    // Chart.js "Canvas is already in use" hatasını önle
     if (reportPaymentMethodChart) {
         reportPaymentMethodChart.destroy();
+        reportPaymentMethodChart = null;
     }
+    
+    // Chart.js registry temizle - aynı canvas'ı yeniden kullanmak için
+    const existingChart = Chart.getChart('payment-methods-chart');
+    if (existingChart) {
+        existingChart.destroy();
+    }
+    
+    const ctx = canvasEl;
 
     const labels = paymentSummary.map(p => p.methodName);
     const data = paymentSummary.map(p => p.totalAmount);
