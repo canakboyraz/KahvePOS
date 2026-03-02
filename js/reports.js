@@ -6,8 +6,8 @@
 
 let currentReportPeriod = 'today';
 
-// Ödeme metodları global değişkenleri
-let paymentMethodChart = null;
+// Ödeme metodları global değişkenleri (reports sayfası için ayrı)
+let reportPaymentMethodChart = null;
 
 function formatCurrency(value) {
     return `${(Number(value) || 0).toFixed(2)} TL`;
@@ -241,15 +241,15 @@ function renderPaymentMethodChart(sales) {
         return;
     }
 
-    if (paymentMethodChart) {
-        paymentMethodChart.destroy();
+    if (reportPaymentMethodChart) {
+        reportPaymentMethodChart.destroy();
     }
 
     const labels = paymentSummary.map(p => p.methodName);
     const data = paymentSummary.map(p => p.totalAmount);
     const colors = paymentSummary.map(p => p.color);
 
-    paymentMethodChart = new Chart(ctx, {
+    reportPaymentMethodChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,
