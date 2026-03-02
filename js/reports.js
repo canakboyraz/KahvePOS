@@ -1354,7 +1354,14 @@ function renderPaymentUserMatrix(sales) {
                 userPaymentData[userName].totalAmount += amount;
             });
         } else if (sale.paymentMethod) {
-            const method = sale.paymentMethod.toLowerCase();
+            let paymentMethodKey = sale.paymentMethod;
+            
+            // paymentMethod array ise, ilk elemanı al
+            if (Array.isArray(sale.paymentMethod) && sale.paymentMethod.length > 0) {
+                paymentMethodKey = sale.paymentMethod[0].method || sale.paymentMethod[0].methodName || 'cash';
+            }
+            
+            const method = typeof paymentMethodKey === 'string' ? paymentMethodKey.toLowerCase() : 'cash';
             const amount = sale.totalAmount || 0;
             if (!userPaymentData[userName].paymentMethods[method]) {
                 userPaymentData[userName].paymentMethods[method] = 0;

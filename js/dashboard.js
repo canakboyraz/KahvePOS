@@ -414,8 +414,15 @@ function calculateDailyPaymentSummary(sales) {
             });
         } else if (sale.paymentMethod) {
             // Tek ödeme yöntemi (eski format)
-            const methodId = sale.paymentMethod.toLowerCase();
-            const methodInfo = paymentMethods[methodId] || { name: sale.paymentMethod, color: '#999' };
+            let paymentMethodKey = sale.paymentMethod;
+            
+            // paymentMethod array ise, ilk elemanı al
+            if (Array.isArray(sale.paymentMethod) && sale.paymentMethod.length > 0) {
+                paymentMethodKey = sale.paymentMethod[0].method || sale.paymentMethod[0].methodName || 'cash';
+            }
+            
+            const methodId = typeof paymentMethodKey === 'string' ? paymentMethodKey.toLowerCase() : 'cash';
+            const methodInfo = paymentMethods[methodId] || { name: paymentMethodKey, color: '#999' };
             
             if (!summary[methodId]) {
                 summary[methodId] = {
