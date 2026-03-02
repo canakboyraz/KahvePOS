@@ -249,9 +249,25 @@ function updateLocalSaleCache(supabaseSale) {
 async function getAllSales() {
     loadSalesOfflineQueue();
     localSalesCache = Storage.getSales() || [];
+    
+    console.log('📊 getAllSales çağrıldı', {
+        online: salesIsOnline,
+        supabaseExists: !!window.supabase,
+        localCacheSize: localSalesCache.length,
+        checkResult: salesCheckSupabaseConnection()
+    });
+
+    // ⚠️ DEBUG: Supabase bağlantı problemi teşhisi
+    if (!window.supabase) {
+        console.error('❌ KRITIK: window.supabase tanımlı DEĞİL! SDK yüklenmemiş olabilir');
+    }
+    if (!salesIsOnline) {
+        console.warn('⚠️ Offline modda - localStorage kullanılıyor');
+    }
 
     if (salesCheckSupabaseConnection()) {
         try {
+            // SUPABASE'DEN VERI ÇEK - KRITIK DÜZELTME
             const { data, error } = await window.supabase
                 .from('sales')
                 .select('*')
@@ -268,38 +284,100 @@ async function getAllSales() {
                     profit: s.profit,
                     discountAmount: s.discount_amount || 0,
                     paymentMethod: s.payment_method,
-                    payment_method_text: s.payment_method_text, // Ödeme yöntemi metni
+                    payment_method_text: s.payment_method_text,
                     createdBy: s.created_by,
                     createdAt: s.created_at,
                     updatedAt: s.updated_at,
                     syncedAt: s.synced_at
                 }));
 
-                // Local cache güncelle
-                localSalesCache = formattedSales;
+                // MERGE LOGIC: Supabase + localStorage birleştir
+                // Local'de Supabase'de olmayan satışlar varsa ekle
+                const supabaseIds = new Set(formattedSales.map(s => s.id));
+                const localOnly = localSalesCache.filter(s => !supabaseIds.has(s.id));
+                
+                localSalesCache = [...formattedSales, ...localOnly];
                 Storage.saveSales(localSalesCache);
                 
-                return formattedSales;
+                console.log('📊 getAllSales sonucu - Supabase+Local merged:', {
+                    fromSupabase: formattedSales.length,
+                    fromLocalOnly: localOnly.length,
+                    totalMerged: localSalesCache.length
+                });
+                
+                return localSalesCache;
             }
         } catch (error) {
-            console.error('Supabase satış yükleme hatası:', error);
+            console.error('❌ Supabase satış yükleme hatası:', error);
         }
+    } else {
+        console.warn('⚠️ Supabase bağlantısı yok, localStorage kullanılıyor');
     }
 
     // Offline mod - localStorage'u kullan
+    console.log('📊 getAllSales - localStorage fallback:', localSalesCache.length);
     return localSalesCache;
 }
 
 // ===== BELİRLİ BİR TARİHTEKİ SATIŞLAR =====
 
 async function getSalesByDate(date) {
-    const sales = await getAllSales();
     const targetDate = formatDate(date);
     
-    return sales.filter(sale => {
+    console.log('📅 getSalesByDate çağrıldı:', targetDate);
+    
+    // Önce Supabase'den tarih bazlı sorgu dene (daha hızlı)
+    if (salesCheckSupabaseConnection()) {
+        try {
+            const { data, error } = await window.supabase
+                .from('sales')
+                .select('*')
+                .eq('sale_date', targetDate)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const formattedSales = data.map(s => ({
+                    id: s.id,
+                    items: s.items || [],
+                    totalAmount: s.total_amount,
+                    totalCost: s.total_cost,
+                    profit: s.profit,
+                    discountAmount: s.discount_amount || 0,
+                    paymentMethod: s.payment_method,
+                    payment_method_text: s.payment_method_text,
+                    createdBy: s.created_by,
+                    createdAt: s.created_at,
+                    updatedAt: s.updated_at
+                }));
+
+                // Local'de de o tarihte satış varsa merge et
+                const localSales = await getAllSales();
+                const supabaseIds = new Set(formattedSales.map(s => s.id));
+                const localForDate = localSales.filter(sale => {
+                    const saleDate = formatDate(new Date(sale.createdAt));
+                    return saleDate === targetDate && !supabaseIds.has(sale.id);
+                });
+                
+                const merged = [...formattedSales, ...localForDate];
+                console.log('📅 getSalesByDate Supabase sonucu:', merged.length);
+                return merged;
+            }
+        } catch (error) {
+            console.error('❌ getSalesByDate Supabase hatası:', error);
+        }
+    }
+    
+    // Fallback: Tüm sales'ten filtrele
+    const sales = await getAllSales();
+    const filtered = sales.filter(sale => {
         const saleDate = formatDate(new Date(sale.createdAt));
         return saleDate === targetDate;
     });
+    
+    console.log('📅 getSalesByDate fallback sonucu:', filtered.length);
+    return filtered;
 }
 
 // ===== BUGÜNÜN SATIŞLARI =====
@@ -409,28 +487,26 @@ function getCurrentUserId() {
 }
 
 // ===== TARİH FORMATLAMA =====
+// Not: DateUtils (utils.js) yüklendiyse onu kullan, yoksa fallback
 
 function salesFormatDate(date) {
-    const d = new Date(date);
-    
-    // Geçersiz tarih kontrolü
-    if (isNaN(d.getTime())) {
-        console.warn('⚠️ Geçersiz salesFormatDate girişi:', date);
-        // Bugünün tarihini kullan
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatDate(date);
     }
-    
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // Fallback
+    const d = new Date(date);
+    if (isNaN(d.getTime())) {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatTime(date) {
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatTime(date);
+    }
+    // Fallback
     const d = new Date(date);
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
@@ -438,6 +514,10 @@ function formatTime(date) {
 }
 
 function formatDateDisplay(date) {
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatDateDisplay(date);
+    }
+    // Fallback
     const d = new Date(date);
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -590,8 +670,23 @@ window.addEventListener('online', () => {
     syncSalesOfflineChanges();
 });
 
+window.addEventListener('online', () => {
+    salesIsOnline = true;
+    console.log('🌐 Online olundu, offline queue senkronize ediliyor...');
+    syncSalesOfflineChanges().then(() => {
+        console.log('✅ Offline queue senkronizasyonu tamamlandı');
+        // Rapor sayfası açıksa, verileri yenile
+        if (window.loadReport) {
+            window.loadReport();
+        }
+    }).catch(error => {
+        console.error('❌ Offline queue senkronizasyonu başarısız:', error);
+    });
+});
+
 window.addEventListener('offline', () => {
     salesIsOnline = false;
+    console.log('⚠️ Offline moduna geçildi');
 });
 
 // ===== INIT =====

@@ -477,6 +477,10 @@ const SupabaseService = {
      * Tarihi YYYY-MM-DD formatına çevir
      */
     formatDate(date) {
+        if (typeof DateUtils !== 'undefined') {
+            return DateUtils.formatDate(date);
+        }
+        // Fallback
         const d = new Date(date);
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');

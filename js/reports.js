@@ -1098,36 +1098,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /**
  * Yardımcı Fonksiyonlar
+ * Not: formatDate, formatDateDisplay, formatTime → DateUtils'e taşındı (js/utils.js)
  */
 function formatDate(date) {
-    // Date objesi veya string'i Date'e çevir
-    const d = date instanceof Date ? date : new Date(date);
-    
-    // Geçersiz tarih kontrolü
-    if (isNaN(d.getTime())) {
-        console.warn('⚠️ formatDate geçersiz tarih:', date);
-        // Bugünün tarihini kullan
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    // DateUtils kullan (utils.js'te tanımlı)
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatDate(date);
     }
-    
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // Fallback (utils.js henüz yüklenmediyse)
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function formatDateDisplay(dateString) {
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatDateDisplay(dateString);
+    }
     if (!dateString) return '';
     const date = new Date(dateString);
     return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
 }
 
 function formatTime(date) {
-    return date.toLocaleTimeString('tr-TR', {
+    if (typeof DateUtils !== 'undefined') {
+        return DateUtils.formatTime(date);
+    }
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleTimeString('tr-TR', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
