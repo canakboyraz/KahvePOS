@@ -1,11 +1,20 @@
-# ☕ KahvePOS v3.0 - Akıllı Satış Sistemi
+# ☕ KahvePOS v4.0 - Akıllı Satış Sistemi
 
 Modern, kullanımı kolay ve özellik dolu kahve dükkanı satış noktası (POS) uygulaması.
+**Supabase entegrasyonu ile bulut tabanlı veri yönetimi.**
 
-![Version](https://img.shields.io/badge/version-3.0.0-brown)
+![Version](https://img.shields.io/badge/version-4.0.0-brown)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## 🚀 Yenilikler v3.0
+## 🚀 Yenilikler v4.0
+
+### 🆕 Supabase Entegrasyonu
+- **☁️ Bulut Tabanlı Veri Yönetimi** - Tüm satışlar Supabase'de saklanıyor
+- **🔄 Hybrid Mode** - Online + Offline çalışma desteği
+- **🔐 Authentication** - Supabase Auth ile kullanıcı girişi
+- **📊 Real-time Sync** - LocalStorage + Supabase senkronizasyonu
+
+### ✨ v3.0 Özellikler (Korunuyor)
 
 ### ✨ Yeni Özellikler
 
@@ -93,23 +102,31 @@ KahvePOS'u masaüstüne veya mobil cihaza yükleyin:
 
 ```
 KahvePOS/
-├── index.html          # Ana sayfa
-├── manifest.json       # PWA manifest
-├── sw.js              # Service Worker
+├── index.html              # Ana sayfa
+├── manifest.json           # PWA manifest
+├── sw.js                  # Service Worker (v4.0)
 ├── css/
-│   └── style.css      # Ana stil dosyası
+│   └── style.css         # Ana stil dosyası
 ├── js/
-│   ├── app.js         # Ana uygulama
-│   ├── cart.js        # Sepet yönetimi
-│   ├── dashboard.js   # Dashboard
-│   ├── products.js    # Ürün yönetimi
-│   ├── reports.js     # Raporlama
-│   ├── sales.js       # Satış işlemleri
-│   ├── settings.js    # Ayarlar
-│   ├── storage.js     # LocalStorage
-│   ├── backup.js      # Yedekleme
-│   └── users.js       # Kullanıcı yönetimi
-└── icons/            # PWA ikonları
+│   ├── app.js            # Ana uygulama koordinasyonu
+│   ├── cart.js           # Sepet yönetimi
+│   ├── dashboard.js      # Dashboard istatistikleri
+│   ├── products.js       # Ürün CRUD işlemleri
+│   ├── reports.js        # Raporlama ve grafikler
+│   ├── sales.js          # Satış işlemleri + Supabase
+│   ├── settings.js       # Uygulama ayarları
+│   ├── storage.js        # LocalStorage wrapper
+│   ├── users.js          # Kullanıcı yönetimi
+│   ├── backup.js         # Yedekleme/Geri yükleme
+│   ├── payments.js       # Ödeme yöntemleri
+│   ├── okc.js            # Hugin Yazar Kasa entegrasyonu
+│   ├── supabase-service.js # Supabase CRUD + Auth
+│   └── utils.js          # Yardımcı fonksiyonlar
+├── supabase/
+│   ├── config.js         # Supabase yapılandırması
+│   └── migrations/       # SQL migration dosyaları
+├── hugin-bridge/         # Hugin Yazar Kasa bridge
+└── icons/                # PWA ikonları
 ```
 
 ## 🌟 Özellikler
@@ -158,10 +175,22 @@ KahvePOS/
 
 ## 🔒 Veri Güvenliği
 
-- Tüm veriler tarayıcıda saklanır (LocalStorage)
-- Şifreler düz metin olarak saklanır (geliştirme aşaması)
+### v4.0 Supabase Entegrasyonu
+- ☁️ **Bulut Tabanlı Veri Saklama** - Supabase PostgreSQL
+- 🔐 **Authentication** - Supabase Auth ile güvenli kullanıcı girişi
+- 🔄 **Hybrid Mode** - Online + Offline çalışma desteği
+- 📱 **Row Level Security (RLS)** - Veri güvenliği politikaları
+- 📊 **Gerçek Zamanlı Senkronizasyon** - LocalStorage + Supabase
+
+### LocalStorage (Fallback)
+- Offline çalışma için yedek depolama
+- Şifreler hashlenerek saklanır (geliştirme aşaması)
 - Düzenli yedekleme önerilir
 - JSON formatında tam yedek alabilirsiniz
+
+### Notlar
+- **Geliştirme aşaması:** RLS politikaları açık (herkes erişebilir)
+- **Production için:** RLS politikaları sıkılaştırılmalı
 
 ## 🖨️ Hugin Yazar Kasa Entegrasyonu
 
@@ -224,4 +253,4 @@ Sorunlarınız için GitHub Issues kullanın veya e-posta gönderin.
 
 ---
 
-**KahvePOS v3.0** - Kahve dükkanınız için akıllı çözüm ☕
+**KahvePOS v4.0** - Kahve dükkanınız için akıllı bulut tabanlı çözüm ☕
