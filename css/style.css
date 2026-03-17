@@ -3113,9 +3113,113 @@ body {
     }
 }
 
+/* ==========================================
+   ÜRÜN BOY SEÇENEKLERİ MODALİ - v4.0
+   ========================================== */
+
+.size-modal-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.size-options-label {
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.size-options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.size-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--color-bg);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.size-option:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    transform: translateX(4px);
+}
+
+.size-option.selected {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: white;
+}
+
+.size-option.selected .size-name,
+.size-option.selected .size-price {
+    color: white;
+}
+
+.size-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.size-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.size-price {
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+}
+
+.size-final-price {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--color-primary);
+}
+
+.size-option.selected .size-final-price {
+    color: white;
+}
+
+/* Modal'daki ürün bilgisi */
+#size-modal .modal-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+#size-modal-product-icon {
+    font-size: 2rem;
+}
+
+/* Mobil uyumluluk */
 @media (max-width: 480px) {
     .daily-summary-grid,
     .summary-cards-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .size-option {
+        padding: 0.875rem;
+    }
+    
+    .size-final-price {
+        font-size: 1rem;
     }
 }

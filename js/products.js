@@ -495,7 +495,7 @@ function renderProductsGrid() {
     }
     
     gridContainer.innerHTML = filteredProducts.map(product => `
-        <div class="product-card" onclick="addToCart('${product.id}')">
+        <div class="product-card" onclick="openSizeModal('${product.id}')">
             <span class="product-icon">${product.icon}</span>
             <div class="product-name">${highlightSearchTerm(product.name)}</div>
             <div class="product-price">${product.salePrice.toFixed(2)} ₺</div>
@@ -812,7 +812,132 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// CSS ekle - highlight için
+// ===== ÜRÜN BOY SEÇENEKLERİ MODALİ =====
+
+// Boy seçenekleri (fiyat farkları)
+const SIZE_OPTIONS = {
+    'small': { name: 'Küçük', priceModifier: 0 },
+    'regular': { name: 'Büyük Boy', priceModifier: 5 },
+    'large': { name: 'Ekstra Büyük', priceModifier: 10 },
+    'almond': { name: 'Badem Sütü', priceModifier: 3 }
+};
+
+// Seçili ürün ve boy bilgisi
+let selectedProduct = null;
+let selectedSize = 'regular';
+
+/**
+ * Boy seçenekleri modal'ını aç
+ */
+function openSizeModal(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+    
+    selectedProduct = product;
+    selectedSize = 'regular'; // Varsayılan
+    
+    const modal = document.getElementById('size-modal');
+    if (!modal) {
+        console.error('Boy seçenekleri modal bulunamadı!');
+        return;
+    }
+    
+    // Ürün bilgisi güncelle
+    document.getElementById('size-modal-product-name').textContent = product.name;
+    document.getElementById('size-modal-product-icon').textContent = product.icon;
+    document.getElementById('size-modal-base-price').textContent = `${product.salePrice.toFixed(2)} ₺`;
+    
+    // Boy seçeneklerini render et
+    const sizeOptionsContainer = document.getElementById('size-options-container');
+    sizeOptionsContainer.innerHTML = Object.entries(SIZE_OPTIONS).map(([key, option]) => {
+        const finalPrice = product.salePrice + option.priceModifier;
+        return `
+            <div class="size-option" data-size="${key}" onclick="selectSize('${key}')">
+                <div class="size-info">
+                    <div class="size-name">${option.name}</div>
+                    <div class="size-price">+${option.priceModifier > 0 ? option.priceModifier : ''} ₺</div>
+                </div>
+                <div class="size-final-price">${finalPrice.toFixed(2)} ₺</div>
+            </div>
+        `;
+    }).join('');
+    
+    // Varsayılan seçimi işaretle
+    document.querySelector(`[data-size="regular"]`)?.classList.add('selected');
+    
+    // Modal'ı aç
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+}
+
+/**
+ * Boy seç
+ */
+function selectSize(size) {
+    selectedSize = size;
+    
+    // Seçimi güncelle
+    document.querySelectorAll('.size-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`[data-size="${size}"]`)?.classList.add('selected');
+}
+
+/**
+ * Seçili boy ile sepete ekle
+ */
+function addToCartWithSize() {
+    if (!selectedProduct) return;
+    
+    const option = SIZE_OPTIONS[selectedSize];
+    const finalPrice = selectedProduct.salePrice + option.priceModifier;
+    const sizeName = option.name;
+    
+    // Sepete ekle (boy bilgisi ile)
+    const existingItem = cart.find(item =>
+        item.productId === selectedProduct.id && item.size === selectedSize
+    );
+    
+    if (existingItem) {
+        existingItem.quantity++;
+    } else {
+        cart.push({
+            productId: selectedProduct.id,
+            productName: selectedProduct.name,
+            productIcon: selectedProduct.icon,
+            unitPrice: finalPrice,
+            costPrice: selectedProduct.costPrice,
+            quantity: 1,
+            size: selectedSize,
+            sizeName: sizeName
+        });
+    }
+    
+    closeSizeModal();
+    renderCart();
+    showToast(`${selectedProduct.name} (${sizeName}) sepete eklendi`, 'success');
+}
+
+/**
+ * Boy seçenekleri modal'ını kapat
+ */
+function closeSizeModal() {
+    const modal = document.getElementById('size-modal');
+    if (!modal) return;
+    
+    modal.classList.remove('show');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+    
+    selectedProduct = null;
+    selectedSize = 'regular';
+}
+
+// Offline queue'yu yükle
+    
+    // Eğer offline queue varsa ve online isek, sync et
+    if (navigator.onLine && productsOfflineQueue.length > 0) {
+        syncOfflineChanges();
+    }
 const highlightStyle = document.createElement('style');
 highlightStyle.textContent = `
     mark {
@@ -822,4 +947,13 @@ highlightStyle.textContent = `
     }
 `;
 document.head.appendChild(highlightStyle);
+
+// ===== GLOBAL EXPORT =====
+
+// Boy seçenekleri modal fonksiyonları
+window.openSizeModal = openSizeModal;
+window.closeSizeModal = closeSizeModal;
+window.selectSize = selectSize;
+window.addToCartWithSize = addToCartWithSize;
+window.SIZE_OPTIONS = SIZE_OPTIONS;
 

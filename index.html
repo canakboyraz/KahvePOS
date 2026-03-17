@@ -1107,6 +1107,33 @@
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
+    <!-- Ürün Boy Seçenekleri Modalı -->
+    <div id="size-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="size-modal-product-icon">☕</span>
+                    <h3 id="size-modal-product-name">Ürün Adı</h3>
+                </div>
+                <button class="modal-close" onclick="closeSizeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="size-modal-info">
+                    <span>Temel Fiyat:</span>
+                    <strong id="size-modal-base-price">0.00 ₺</strong>
+                </div>
+                <div class="size-options-label">Boyut Seçin:</div>
+                <div id="size-options-container" class="size-options-container">
+                    <!-- Boy seçenekleri JavaScript ile doldurulacak -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeSizeModal()">İptal</button>
+                <button class="btn-primary" onclick="addToCartWithSize()">Sepete Ekle</button>
+            </div>
+        </div>
+    </div>
+
     <!-- SDK Yükleme Kontrolü -->
     <script>
         // Supabase SDK yüklendi mi kontrol et
