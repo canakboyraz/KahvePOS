@@ -495,12 +495,20 @@ function renderProductsGrid() {
     }
     
     gridContainer.innerHTML = filteredProducts.map(product => `
-        <div class="product-card" onclick="openSizeModal('${product.id}')">
+        <div class="product-card" onclick="handleProductClick(event, '${product.id}', this)">
             <span class="product-icon">${product.icon}</span>
             <div class="product-name">${highlightSearchTerm(product.name)}</div>
             <div class="product-price">${product.salePrice.toFixed(2)} ₺</div>
         </div>
     `).join('');
+}
+
+/**
+ * Ürün kartına tıklama - Boy seçenekleri popover'ını aç
+ */
+function handleProductClick(event, productId, cardElement) {
+    event.stopPropagation();
+    openSizePopover(productId, cardElement);
 }
 
 function highlightSearchTerm(text) {
@@ -812,9 +820,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== ÜRÜN BOY SEÇENEKLERİ MODALİ =====
+// ===== ÜRÜN BOY SEÇENEKLERİ POPOVER =====
 
-// Boy seçenekleri (fiyat farkları)
+// Boy seçenekleri (fiyat farkları) - Admin panelinden düzenlenebilir
 const SIZE_OPTIONS = {
     'small': { name: 'Küçük', priceModifier: 0 },
     'regular': { name: 'Büyük Boy', priceModifier: 5 },
@@ -825,27 +833,29 @@ const SIZE_OPTIONS = {
 // Seçili ürün ve boy bilgisi
 let selectedProduct = null;
 let selectedSize = 'regular';
+let selectedProductCard = null; // Tıklanan ürün kartı
 
 /**
- * Boy seçenekleri modal'ını aç
+ * Boy seçenekleri popover'ını aç (tıklanan kartın yanında)
  */
-function openSizeModal(productId) {
+function openSizePopover(productId, cardElement) {
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     
     selectedProduct = product;
+    selectedProductCard = cardElement;
     selectedSize = 'regular'; // Varsayılan
     
-    const modal = document.getElementById('size-modal');
-    if (!modal) {
-        console.error('Boy seçenekleri modal bulunamadı!');
+    const popover = document.getElementById('size-popover');
+    if (!popover) {
+        console.error('Boy seçenekleri popover bulunamadı!');
         return;
     }
     
     // Ürün bilgisi güncelle
-    document.getElementById('size-modal-product-name').textContent = product.name;
-    document.getElementById('size-modal-product-icon').textContent = product.icon;
-    document.getElementById('size-modal-base-price').textContent = `${product.salePrice.toFixed(2)} ₺`;
+    document.getElementById('size-popover-product-name').textContent = product.name;
+    document.getElementById('size-popover-product-icon').textContent = product.icon;
+    document.getElementById('size-popover-base-price').textContent = `${product.salePrice.toFixed(2)} ₺`;
     
     // Boy seçeneklerini render et
     const sizeOptionsContainer = document.getElementById('size-options-container');
@@ -865,9 +875,37 @@ function openSizeModal(productId) {
     // Varsayılan seçimi işaretle
     document.querySelector(`[data-size="regular"]`)?.classList.add('selected');
     
-    // Modal'ı aç
-    modal.style.display = 'flex';
-    setTimeout(() => modal.classList.add('show'), 10);
+    // Popover'ı konumlandır ve aç
+    const rect = cardElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Popover boyutunu hesapla (henüz render edilmediği için yaklaşık)
+    const popoverWidth = 320;
+    const popoverHeight = 400;
+    
+    // Konum hesapla (sağ alt köşe)
+    let top = rect.bottom + 8;
+    let left = rect.left;
+    
+    // Sağa taşma kontrolü
+    if (left + popoverWidth > viewportWidth - 16) {
+        left = viewportWidth - popoverWidth - 16;
+    }
+    
+    // Aşağı taşma kontrolü
+    if (top + popoverHeight > viewportHeight - 16) {
+        top = rect.top - popoverHeight - 8;
+    }
+    
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+    popover.style.display = 'block';
+    
+    // Dışarı tıklandığında kapat
+    setTimeout(() => {
+        document.addEventListener('click', closeSizePopoverOutside);
+    }, 100);
 }
 
 /**
@@ -911,25 +949,40 @@ function addToCartWithSize() {
         });
     }
     
-    closeSizeModal();
+    closeSizePopover();
     renderCart();
     showToast(`${selectedProduct.name} (${sizeName}) sepete eklendi`, 'success');
 }
 
 /**
- * Boy seçenekleri modal'ını kapat
+ * Boy seçenekleri popover'ını kapat
  */
-function closeSizeModal() {
-    const modal = document.getElementById('size-modal');
-    if (!modal) return;
+function closeSizePopover() {
+    const popover = document.getElementById('size-popover');
+    if (!popover) return;
     
-    modal.classList.remove('show');
-    setTimeout(() => {
-        modal.style.display = 'none';
-    }, 300);
-    
+    popover.style.display = 'none';
     selectedProduct = null;
+    selectedProductCard = null;
     selectedSize = 'regular';
+    
+    document.removeEventListener('click', closeSizePopoverOutside);
+}
+
+/**
+ * Popover dışına tıklandığında kapat
+ */
+function closeSizePopoverOutside(event) {
+    const popover = document.getElementById('size-popover');
+    if (!popover || popover.style.display === 'none') return;
+    
+    // Popover içinde tıklama ise kapatma
+    if (popover.contains(event.target)) return;
+    
+    // Tıklanan ürün kartı dışında bir yere tıklandı
+    if (selectedProductCard && !selectedProductCard.contains(event.target)) {
+        closeSizePopover();
+    }
 }
 
 // Offline queue'yu yükle
@@ -950,9 +1003,10 @@ document.head.appendChild(highlightStyle);
 
 // ===== GLOBAL EXPORT =====
 
-// Boy seçenekleri modal fonksiyonları
-window.openSizeModal = openSizeModal;
-window.closeSizeModal = closeSizeModal;
+// Boy seçenekleri popover fonksiyonları
+window.handleProductClick = handleProductClick;
+window.openSizePopover = openSizePopover;
+window.closeSizePopover = closeSizePopover;
 window.selectSize = selectSize;
 window.addToCartWithSize = addToCartWithSize;
 window.SIZE_OPTIONS = SIZE_OPTIONS;

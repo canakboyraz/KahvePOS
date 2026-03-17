@@ -3114,8 +3114,60 @@ body {
 }
 
 /* ==========================================
-   ÜRÜN BOY SEÇENEKLERİ MODALİ - v4.0
+   ÜRÜN BOY SEÇENEKLERİ POPOVER - v4.0
    ========================================== */
+
+.size-popover {
+    position: absolute;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xl);
+    z-index: 1000;
+    min-width: 280px;
+    max-width: 350px;
+    animation: popoverFadeIn 0.2s ease;
+}
+
+@keyframes popoverFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.size-popover-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+}
+
+.size-popover-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-text-light);
+    line-height: 1;
+}
+
+.size-popover-close:hover {
+    color: var(--color-danger);
+}
+
+.size-popover-body {
+    padding: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
 
 .size-modal-info {
     display: flex;
