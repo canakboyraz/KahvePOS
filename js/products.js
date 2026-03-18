@@ -600,6 +600,13 @@ function openProductModal(productId = null) {
             document.getElementById('product-price').value = product.salePrice;
             document.getElementById('product-icon').value = product.icon;
             
+            // Boy fiyat farklarını yükle
+            const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
+            document.getElementById('size-small-price').value = sizePrices.small?.priceModifier || 0;
+            document.getElementById('size-regular-price').value = sizePrices.regular?.priceModifier || 5;
+            document.getElementById('size-large-price').value = sizePrices.large?.priceModifier || 10;
+            document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier || 3;
+            
             iconOptions.forEach(opt => {
                 if (opt.getAttribute('data-icon') === product.icon) {
                     opt.classList.add('selected');
@@ -632,7 +639,25 @@ async function saveProduct(event) {
         costPrice: parseFloat(document.getElementById('product-cost').value),
         salePrice: parseFloat(document.getElementById('product-price').value),
         icon: document.getElementById('product-icon').value,
-        active: true
+        active: true,
+        sizePrices: {
+            small: {
+                name: 'Küçük',
+                priceModifier: parseFloat(document.getElementById('size-small-price').value) || 0
+            },
+            regular: {
+                name: 'Büyük Boy',
+                priceModifier: parseFloat(document.getElementById('size-regular-price').value) || 5
+            },
+            large: {
+                name: 'Ekstra Büyük',
+                priceModifier: parseFloat(document.getElementById('size-large-price').value) || 10
+            },
+            almond: {
+                name: 'Badem Sütü',
+                priceModifier: parseFloat(document.getElementById('size-almond-price').value) || 3
+            }
+        }
     };
     
     if (productData.salePrice <= productData.costPrice) {
@@ -822,8 +847,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== ÜRÜN BOY SEÇENEKLERİ POPOVER =====
 
-// Boy seçenekleri (fiyat farkları) - Admin panelinden düzenlenebilir
-const SIZE_OPTIONS = {
+// Varsayılan boy seçenekleri - ürün özelinde tanımlanmadığında kullanılır
+const DEFAULT_SIZE_OPTIONS = {
     'small': { name: 'Küçük', priceModifier: 0 },
     'regular': { name: 'Büyük Boy', priceModifier: 5 },
     'large': { name: 'Ekstra Büyük', priceModifier: 10 },
@@ -857,10 +882,13 @@ function openSizePopover(productId, cardElement) {
     document.getElementById('size-popover-product-icon').textContent = product.icon;
     document.getElementById('size-popover-base-price').textContent = `${product.salePrice.toFixed(2)} ₺`;
     
+    // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
+    const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
+    
     // Boy seçeneklerini render et
     const sizeOptionsContainer = document.getElementById('size-options-container');
-    sizeOptionsContainer.innerHTML = Object.entries(SIZE_OPTIONS).map(([key, option]) => {
-        const finalPrice = product.salePrice + option.priceModifier;
+    sizeOptionsContainer.innerHTML = Object.entries(sizePrices).map(([key, option]) => {
+        const finalPrice = product.salePrice + (option.priceModifier || 0);
         return `
             <div class="size-option" data-size="${key}" onclick="selectSize('${key}')">
                 <div class="size-info">
@@ -925,8 +953,10 @@ function selectSize(size) {
 function addToCartWithSize() {
     if (!selectedProduct) return;
     
-    const option = SIZE_OPTIONS[selectedSize];
-    const finalPrice = selectedProduct.salePrice + option.priceModifier;
+    // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
+    const sizePrices = selectedProduct.sizePrices || DEFAULT_SIZE_OPTIONS;
+    const option = sizePrices[selectedSize];
+    const finalPrice = selectedProduct.salePrice + (option.priceModifier || 0);
     const sizeName = option.name;
     
     // Sepete ekle (boy bilgisi ile)

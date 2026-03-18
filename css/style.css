@@ -3124,8 +3124,8 @@ body {
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-xl);
     z-index: 1000;
-    min-width: 280px;
-    max-width: 350px;
+    min-width: 450px;
+    max-width: 550px;
     animation: popoverFadeIn 0.2s ease;
 }
 
@@ -3260,6 +3260,29 @@ body {
     font-size: 2rem;
 }
 
+/* Form Bölüm Başlıkları */
+.form-section-title {
+    margin: 1.5rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.form-section-title h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-section-title small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--color-text-light);
+    font-size: 0.85rem;
+}
+
 /* Mobil uyumluluk */
 @media (max-width: 480px) {
     .daily-summary-grid,
@@ -3273,5 +3296,10 @@ body {
     
     .size-final-price {
         font-size: 1rem;
+    }
+    
+    .size-popover {
+        min-width: 300px;
+        max-width: 350px;
     }
 }
