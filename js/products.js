@@ -903,31 +903,15 @@ function openSizePopover(productId, cardElement) {
     // Varsayılan seçimi işaretle
     document.querySelector(`[data-size="regular"]`)?.classList.add('selected');
     
-    // Popover'ı konumlandır ve aç
-    const rect = cardElement.getBoundingClientRect();
+    // Popover'ı ekranın ortasında göster (scroll gerektirmesin)
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     
-    // Popover boyutunu hesapla (henüz render edilmediği için yaklaşık)
-    const popoverWidth = 320;
-    const popoverHeight = 400;
-    
-    // Konum hesapla (sağ alt köşe)
-    let top = rect.bottom + 8;
-    let left = rect.left;
-    
-    // Sağa taşma kontrolü
-    if (left + popoverWidth > viewportWidth - 16) {
-        left = viewportWidth - popoverWidth - 16;
-    }
-    
-    // Aşağı taşma kontrolü
-    if (top + popoverHeight > viewportHeight - 16) {
-        top = rect.top - popoverHeight - 8;
-    }
-    
-    popover.style.top = `${top}px`;
-    popover.style.left = `${left}px`;
+    // Popover'ı ortala
+    popover.style.top = '50%';
+    popover.style.left = '50%';
+    popover.style.transform = 'translate(-50%, -50%)';
+    popover.style.position = 'fixed';
     popover.style.display = 'block';
     
     // Dışarı tıklandığında kapat
@@ -992,6 +976,7 @@ function closeSizePopover() {
     if (!popover) return;
     
     popover.style.display = 'none';
+    popover.style.transform = '';
     selectedProduct = null;
     selectedProductCard = null;
     selectedSize = 'regular';
