@@ -851,13 +851,16 @@ document.addEventListener('DOMContentLoaded', () => {
 const DEFAULT_SIZE_OPTIONS = {
     'small': { name: 'Küçük', priceModifier: 0 },
     'regular': { name: 'Büyük Boy', priceModifier: 5 },
-    'large': { name: 'Ekstra Büyük', priceModifier: 10 },
-    'almond': { name: 'Badem Sütü', priceModifier: 3 }
+    'large': { name: 'Ekstra Büyük', priceModifier: 10 }
 };
+
+// Badem sütü eklemesi (checkbox)
+const DEFAULT_ALMOND_MILK_PRICE = 3;
 
 // Seçili ürün ve boy bilgisi
 let selectedProduct = null;
 let selectedSize = 'regular';
+let selectedAlmondMilk = false; // Badem sütü seçimi
 let selectedProductCard = null; // Tıklanan ürün kartı
 
 /**
@@ -870,6 +873,7 @@ function openSizePopover(productId, cardElement) {
     selectedProduct = product;
     selectedProductCard = cardElement;
     selectedSize = 'regular'; // Varsayılan
+    selectedAlmondMilk = false; // Badem sütü varsayılan kapalı
     
     const popover = document.getElementById('size-popover');
     if (!popover) {
@@ -884,21 +888,41 @@ function openSizePopover(productId, cardElement) {
     
     // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
     const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
+    // Badem sütü fiyatını al
+    const almondPrice = (product.sizePrices && product.sizePrices.almond)
+        ? product.sizePrices.almond.priceModifier
+        : DEFAULT_ALMOND_MILK_PRICE;
     
-    // Boy seçeneklerini render et
+    // Boy seçeneklerini render et (Badem Sütü hariç)
     const sizeOptionsContainer = document.getElementById('size-options-container');
-    sizeOptionsContainer.innerHTML = Object.entries(sizePrices).map(([key, option]) => {
-        const finalPrice = product.salePrice + (option.priceModifier || 0);
-        return `
-            <div class="size-option" data-size="${key}" onclick="selectSize('${key}')">
-                <div class="size-info">
-                    <div class="size-name">${option.name}</div>
-                    <div class="size-price">+${option.priceModifier > 0 ? option.priceModifier : ''} ₺</div>
+    const sizeEntries = Object.entries(sizePrices).filter(([key]) => key !== 'almond');
+    
+    sizeOptionsContainer.innerHTML = `
+        <div class="size-options-label">📏 Boy Seçin:</div>
+        ${sizeEntries.map(([key, option]) => {
+            const finalPrice = product.salePrice + (option.priceModifier || 0);
+            return `
+                <div class="size-option" data-size="${key}" onclick="selectSize('${key}')">
+                    <div class="size-info">
+                        <div class="size-name">${option.name}</div>
+                        <div class="size-price">${option.priceModifier > 0 ? '+' + option.priceModifier + ' ₺' : 'Standart'}</div>
+                    </div>
+                    <div class="size-final-price">${finalPrice.toFixed(2)} ₺</div>
                 </div>
-                <div class="size-final-price">${finalPrice.toFixed(2)} ₺</div>
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('')}
+        
+        <div class="almond-milk-section">
+            <div class="size-options-label" style="margin-top: 1rem;">🥛 Ekstra Seçenek:</div>
+            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                <input type="checkbox" id="almond-milk-check" onchange="toggleAlmondMilk(this.checked)">
+                <div class="almond-milk-info">
+                    <span class="almond-milk-name">Badem Sütü</span>
+                    <span class="almond-milk-price">+${almondPrice} ₺</span>
+                </div>
+            </label>
+        </div>
+    `;
     
     // Varsayılan seçimi işaretle
     document.querySelector(`[data-size="regular"]`)?.classList.add('selected');
@@ -932,6 +956,13 @@ function selectSize(size) {
 }
 
 /**
+ * Badem sütü seçimini değiştir
+ */
+function toggleAlmondMilk(checked) {
+    selectedAlmondMilk = checked;
+}
+
+/**
  * Seçili boy ile sepete ekle
  */
 function addToCartWithSize() {
@@ -939,13 +970,30 @@ function addToCartWithSize() {
     
     // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
     const sizePrices = selectedProduct.sizePrices || DEFAULT_SIZE_OPTIONS;
-    const option = sizePrices[selectedSize];
-    const finalPrice = selectedProduct.salePrice + (option.priceModifier || 0);
-    const sizeName = option.name;
+    const sizeOption = sizePrices[selectedSize];
     
-    // Sepete ekle (boy bilgisi ile)
+    // Badem sütü fiyatı
+    const almondPrice = (selectedProduct.sizePrices && selectedProduct.sizePrices.almond)
+        ? selectedProduct.sizePrices.almond.priceModifier
+        : DEFAULT_ALMOND_MILK_PRICE;
+    
+    // Final fiyat = ürün fiyatı + boy farkı + badem sütü (seçiliyse)
+    let finalPrice = selectedProduct.salePrice + (sizeOption.priceModifier || 0);
+    if (selectedAlmondMilk) {
+        finalPrice += almondPrice;
+    }
+    
+    // Sepetteki isim
+    let sizeName = sizeOption.name;
+    if (selectedAlmondMilk) {
+        sizeName += ' + Badem Sütü';
+    }
+    
+    // Sepete ekle (boy + badem sütü bilgisi ile)
     const existingItem = cart.find(item =>
-        item.productId === selectedProduct.id && item.size === selectedSize
+        item.productId === selectedProduct.id &&
+        item.size === selectedSize &&
+        item.almondMilk === selectedAlmondMilk
     );
     
     if (existingItem) {
@@ -959,7 +1007,8 @@ function addToCartWithSize() {
             costPrice: selectedProduct.costPrice,
             quantity: 1,
             size: selectedSize,
-            sizeName: sizeName
+            sizeName: sizeName,
+            almondMilk: selectedAlmondMilk
         });
     }
     
@@ -980,6 +1029,7 @@ function closeSizePopover() {
     selectedProduct = null;
     selectedProductCard = null;
     selectedSize = 'regular';
+    selectedAlmondMilk = false; // Badem sütü seçimini sıfırla
     
     document.removeEventListener('click', closeSizePopoverOutside);
 }
@@ -1023,6 +1073,8 @@ window.handleProductClick = handleProductClick;
 window.openSizePopover = openSizePopover;
 window.closeSizePopover = closeSizePopover;
 window.selectSize = selectSize;
+window.toggleAlmondMilk = toggleAlmondMilk;
 window.addToCartWithSize = addToCartWithSize;
-window.SIZE_OPTIONS = SIZE_OPTIONS;
+window.DEFAULT_SIZE_OPTIONS = DEFAULT_SIZE_OPTIONS;
+window.DEFAULT_ALMOND_MILK_PRICE = DEFAULT_ALMOND_MILK_PRICE;
 

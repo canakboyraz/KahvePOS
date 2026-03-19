@@ -3260,6 +3260,59 @@ body {
     font-size: 2rem;
 }
 
+/* Badem Sütü Checkbox */
+.almond-milk-section {
+    margin-top: 0.5rem;
+    border-top: 1px dashed var(--color-border);
+    padding-top: 0.5rem;
+}
+
+.almond-milk-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.almond-milk-checkbox:hover {
+    border-color: var(--color-warning);
+    background: var(--color-surface);
+}
+
+.almond-milk-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-warning);
+    cursor: pointer;
+}
+
+.almond-milk-checkbox input[type="checkbox"]:checked + .almond-milk-info {
+    color: var(--color-warning-dark);
+    font-weight: 600;
+}
+
+.almond-milk-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: 1;
+}
+
+.almond-milk-name {
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.almond-milk-price {
+    font-weight: 600;
+    color: var(--color-warning);
+}
+
 /* Form Bölüm Başlıkları */
 .form-section-title {
     margin: 1.5rem 0 1rem 0;
