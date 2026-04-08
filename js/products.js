@@ -604,7 +604,6 @@ function openProductModal(productId = null) {
             const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
             document.getElementById('size-small-price').value = sizePrices.small?.priceModifier || 0;
             document.getElementById('size-regular-price').value = sizePrices.regular?.priceModifier || 5;
-            document.getElementById('size-large-price').value = sizePrices.large?.priceModifier || 10;
             document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier || 3;
             
             iconOptions.forEach(opt => {
@@ -641,23 +640,19 @@ async function saveProduct(event) {
         icon: document.getElementById('product-icon').value,
         active: true,
         sizePrices: {
-            small: {
-                name: 'Küçük',
-                priceModifier: parseFloat(document.getElementById('size-small-price').value) || 0
-            },
-            regular: {
-                name: 'Büyük Boy',
-                priceModifier: parseFloat(document.getElementById('size-regular-price').value) || 5
-            },
-            large: {
-                name: 'Ekstra Büyük',
-                priceModifier: parseFloat(document.getElementById('size-large-price').value) || 10
-            },
-            almond: {
-                name: 'Badem Sütü',
-                priceModifier: parseFloat(document.getElementById('size-almond-price').value) || 3
-            }
+        small: {
+            name: 'Küçük',
+            priceModifier: parseFloat(document.getElementById('size-small-price').value) || 0
+        },
+        regular: {
+            name: 'Büyük',
+            priceModifier: parseFloat(document.getElementById('size-regular-price').value) || 5
+        },
+        almond: {
+            name: 'Badem Sütü',
+            priceModifier: parseFloat(document.getElementById('size-almond-price').value) || 3
         }
+    }
     };
     
     if (productData.salePrice <= productData.costPrice) {
@@ -850,8 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Varsayılan boy seçenekleri - ürün özelinde tanımlanmadığında kullanılır
 const DEFAULT_SIZE_OPTIONS = {
     'small': { name: 'Küçük', priceModifier: 0 },
-    'regular': { name: 'Büyük Boy', priceModifier: 5 },
-    'large': { name: 'Ekstra Büyük', priceModifier: 10 }
+    'regular': { name: 'Büyük', priceModifier: 5 }
 };
 
 // Badem sütü eklemesi (checkbox)
