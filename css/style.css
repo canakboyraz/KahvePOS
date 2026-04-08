@@ -646,8 +646,16 @@ body {
 
 .cart-item-name {
     font-weight: 600;
-    font-size: 0.95rem;
-    margin-bottom: 0.2rem;
+}
+
+.cart-item-size {
+    font-size: 0.8rem;
+    color: var(--color-text-light);
+    background: var(--color-bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 2px 0;
 }
 
 .cart-item-price {

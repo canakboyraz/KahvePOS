@@ -33,13 +33,29 @@ function addToCart(productId) {
     showToast(`${product.name} sepete eklendi`, 'success');
 }
 
-// Sepetten ürün çıkarma
+// Sepetten ürün çıkarma (index-based - boy/badem sütü desteği)
+function removeCartItem(index) {
+    if (index >= 0 && index < cart.length) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+}
+
+// Sepetten ürün çıkarma (eski - geri uyumluluk)
 function removeFromCart(productId) {
     cart = cart.filter(item => item.productId !== productId);
     renderCart();
 }
 
-// Ürün miktarını artırma
+// Ürün miktarını artırma (index-based)
+function increaseCartItem(index) {
+    if (index >= 0 && index < cart.length) {
+        cart[index].quantity++;
+        renderCart();
+    }
+}
+
+// Ürün miktarını artırma (eski - geri uyumluluk)
 function increaseQuantity(productId) {
     const item = cart.find(item => item.productId === productId);
     if (item) {
@@ -48,7 +64,19 @@ function increaseQuantity(productId) {
     }
 }
 
-// Ürün miktarını azaltma
+// Ürün miktarını azaltma (index-based)
+function decreaseCartItem(index) {
+    if (index >= 0 && index < cart.length) {
+        if (cart[index].quantity > 1) {
+            cart[index].quantity--;
+        } else {
+            cart.splice(index, 1);
+        }
+        renderCart();
+    }
+}
+
+// Ürün miktarını azaltma (eski - geri uyumluluk)
 function decreaseQuantity(productId) {
     const item = cart.find(item => item.productId === productId);
     if (item) {
@@ -219,21 +247,22 @@ function renderCart() {
     cartSummary.style.display = 'block';
     
     // Sepet öğelerini oluştur
-    cartContainer.innerHTML = cart.map(item => `
+    cartContainer.innerHTML = cart.map((item, index) => `
         <div class="cart-item">
             <div class="cart-item-info">
                 <div class="cart-item-name">
                     ${item.productIcon} ${item.productName}
                 </div>
+                ${item.sizeName ? `<div class="cart-item-size">${item.sizeName}</div>` : ''}
                 <div class="cart-item-price">
                     ${item.unitPrice.toFixed(2)} ₺ × ${item.quantity} = ${(item.unitPrice * item.quantity).toFixed(2)} ₺
                 </div>
             </div>
             <div class="cart-item-controls">
-                <button class="qty-btn" onclick="decreaseQuantity('${item.productId}')">−</button>
+                <button class="qty-btn" onclick="decreaseCartItem(${index})">−</button>
                 <span class="qty-display">${item.quantity}</span>
-                <button class="qty-btn" onclick="increaseQuantity('${item.productId}')">+</button>
-                <button class="cart-item-remove" onclick="removeFromCart('${item.productId}')">✕</button>
+                <button class="qty-btn" onclick="increaseCartItem(${index})">+</button>
+                <button class="cart-item-remove" onclick="removeCartItem(${index})">✕</button>
             </div>
         </div>
     `).join('');
@@ -312,6 +341,7 @@ function renderPaymentCartSummary() {
                 <div class="payment-cart-item-name">
                     ${item.productIcon} ${item.productName}
                 </div>
+                ${item.sizeName ? `<div class="cart-item-size">${item.sizeName}</div>` : ''}
                 <div class="payment-cart-item-qty">
                     ${item.quantity} x ${item.unitPrice.toFixed(2)} ₺
                 </div>
