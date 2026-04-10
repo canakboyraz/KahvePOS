@@ -242,19 +242,31 @@ function renderPaymentMethodChart(sales) {
     }
 
     // Chart.js "Canvas is already in use" hatasını önle
-    // Önce Chart.js registry'den temizle - aynı canvas'ı yeniden kullanmak için
-    const existingChart = Chart.getChart('payment-methods-chart');
-    if (existingChart) {
-        existingChart.destroy();
+    // Tüm Chart.js chart'larını temizle - her chart'ın canvas'ını kontrol et
+    for (const chartId in Chart.instances) {
+        const chart = Chart.instances[chartId];
+        if (chart && chart.canvas && chart.canvas.id === 'payment-methods-chart') {
+            chart.destroy();
+        }
     }
     
-    // Instance'ı da temizle
+    // Instance değişkenini de temizle
     if (reportPaymentMethodChart) {
-        reportPaymentMethodChart.destroy();
+        if (typeof reportPaymentMethodChart.destroy === 'function') {
+            reportPaymentMethodChart.destroy();
+        }
         reportPaymentMethodChart = null;
     }
     
-    const ctx = canvasEl;
+    // Canvas'ı yeniden oluştur (bazen bu gerekli)
+    const parent = canvasEl.parentElement;
+    if (parent) {
+        const newCanvas = canvasEl.cloneNode(true);
+        parent.replaceChild(newCanvas, canvasEl);
+    }
+    
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
 
     const labels = paymentSummary.map(p => p.methodName);
     const data = paymentSummary.map(p => p.totalAmount);

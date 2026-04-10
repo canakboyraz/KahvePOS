@@ -962,9 +962,18 @@ function toggleAlmondMilk(checked) {
 function addToCartWithSize() {
     if (!selectedProduct) return;
     
+    // Boy seçeneği yoksa varsayılan küçük boy kullan
+    if (!selectedSize) selectedSize = 'small';
+    
     // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
     const sizePrices = selectedProduct.sizePrices || DEFAULT_SIZE_OPTIONS;
-    const sizeOption = sizePrices[selectedSize] || DEFAULT_SIZE_OPTIONS[selectedSize] || { name: selectedSize, priceModifier: 0 };
+    let sizeOption = sizePrices[selectedSize] || DEFAULT_SIZE_OPTIONS[selectedSize];
+    
+    // Hala yoksa (ürün eski olabilir), varsayılan bir nesne oluştur
+    if (!sizeOption) {
+        console.warn('Boy seçeneği bulunamadı, varsayılan kullanılıyor:', { selectedSize, sizePrices });
+        sizeOption = { name: 'Küçük', priceModifier: 0 };
+    }
     
     // Badem sütü fiyatı
     const almondPrice = (selectedProduct.sizePrices && selectedProduct.sizePrices.almond)
@@ -977,10 +986,16 @@ function addToCartWithSize() {
         finalPrice += almondPrice;
     }
     
-    // Sepetteki isim
-    let sizeName = sizeOption.name || selectedSize;
+    // Sepetteki isim - null kontrolü
+    let sizeName = sizeOption?.name || selectedSize || 'Standart';
     if (selectedAlmondMilk) {
         sizeName += ' + Badem Sütü';
+    }
+    
+    // Son kontrol - sizeName hala null ise güvenlik için
+    if (!sizeName || typeof sizeName !== 'string') {
+        sizeName = 'Standart';
+        console.error('sizeName null düzeltildi:', { sizeOption, selectedSize });
     }
     
     // Sepete ekle (boy + badem sütü bilgisi ile)
