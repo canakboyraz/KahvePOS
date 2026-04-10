@@ -242,15 +242,16 @@ function renderPaymentMethodChart(sales) {
     }
 
     // Chart.js "Canvas is already in use" hatasını önle
-    if (reportPaymentMethodChart) {
-        reportPaymentMethodChart.destroy();
-        reportPaymentMethodChart = null;
-    }
-    
-    // Chart.js registry temizle - aynı canvas'ı yeniden kullanmak için
+    // Önce Chart.js registry'den temizle - aynı canvas'ı yeniden kullanmak için
     const existingChart = Chart.getChart('payment-methods-chart');
     if (existingChart) {
         existingChart.destroy();
+    }
+    
+    // Instance'ı da temizle
+    if (reportPaymentMethodChart) {
+        reportPaymentMethodChart.destroy();
+        reportPaymentMethodChart = null;
     }
     
     const ctx = canvasEl;

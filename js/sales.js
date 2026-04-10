@@ -430,13 +430,17 @@ async function addSale(saleData) {
             }
 
             // Supabase'in urettigi UUID'yi localStorage'a da kaydet
+            // VE local ID'yi Supabase ID ile DEĞİŞTİR (duplicate engelle!)
             if (data && data[0]) {
-                newSale.supabaseId = data[0].id;
+                const supabaseId = data[0].id;
                 const cacheIndex = localSalesCache.findIndex(s => s.id === localId);
                 if (cacheIndex !== -1) {
-                    localSalesCache[cacheIndex].supabaseId = data[0].id;
-                    Storage.saveSales(localSalesCache);
+                    localSalesCache[cacheIndex].id = supabaseId;  // ID'yi Supabase ile eşitle
+                    localSalesCache[cacheIndex].supabaseId = supabaseId;
                 }
+                newSale.id = supabaseId;
+                newSale.supabaseId = supabaseId;
+                Storage.saveSales(localSalesCache);
             }
             console.log("✅ Satis Supabase'e kaydedildi:", data);
         } catch (error) {

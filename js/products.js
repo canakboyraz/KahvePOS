@@ -964,7 +964,7 @@ function addToCartWithSize() {
     
     // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
     const sizePrices = selectedProduct.sizePrices || DEFAULT_SIZE_OPTIONS;
-    const sizeOption = sizePrices[selectedSize];
+    const sizeOption = sizePrices[selectedSize] || DEFAULT_SIZE_OPTIONS[selectedSize] || { name: selectedSize, priceModifier: 0 };
     
     // Badem sütü fiyatı
     const almondPrice = (selectedProduct.sizePrices && selectedProduct.sizePrices.almond)
@@ -978,7 +978,7 @@ function addToCartWithSize() {
     }
     
     // Sepetteki isim
-    let sizeName = sizeOption.name;
+    let sizeName = sizeOption.name || selectedSize;
     if (selectedAlmondMilk) {
         sizeName += ' + Badem Sütü';
     }
