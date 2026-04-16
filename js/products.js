@@ -1111,9 +1111,13 @@ function addToCartWithSize() {
         });
     }
     
+    // Önce ürün adını sakla (closeSizePopover selectedProduct'u null yapacak)
+    const productName = selectedProduct.name;
+    const finalSizeName = sizeName;
+    
     closeSizePopover();
     renderCart();
-    showToast(`${selectedProduct.name} (${sizeName}) sepete eklendi`, 'success');
+    showToast(`${productName} (${finalSizeName}) sepete eklendi`, 'success');
 }
 
 /**
