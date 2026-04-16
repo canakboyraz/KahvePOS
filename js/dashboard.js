@@ -330,40 +330,52 @@ async function loadPaymentMethodsChart() {
     // Zaten yükleniyorsa, tekrar yükleme
     if (isLoadingPaymentChart) return;
     
-    const ctx = document.getElementById('payment-methods-chart');
-    if (!ctx) return;
+    const canvasEl = document.getElementById('payment-methods-chart');
+    if (!canvasEl) return;
     
     isLoadingPaymentChart = true;
+    
+    // TÜM Chart.js instance'larını temizle (global cleanup)
+    Object.keys(Chart.instances).forEach(key => {
+        const chart = Chart.instances[key];
+        if (chart) {
+            chart.destroy();
+        }
+    });
+    
+    // Local instance'ı da temizle
+    if (paymentMethodChart) {
+        paymentMethodChart.destroy();
+        paymentMethodChart = null;
+    }
+    
+    // Canvas'ı tamamen yeniden oluştur (en garantili yöntem)
+    const parent = canvasEl.parentElement;
+    if (parent) {
+        const newCanvas = canvasEl.cloneNode(true);
+        parent.replaceChild(newCanvas, canvasEl);
+    }
     
     const todaySales = await getTodaySales();
     const paymentSummary = calculateDailyPaymentSummary(todaySales);
     
     if (paymentSummary.length === 0) {
+        isLoadingPaymentChart = false;
         return;
-    }
-
-    // Chart.js "Canvas is already in use" hatasını önle
-    // Tüm Chart.js chart'larını temizle
-    for (const chartId in Chart.instances) {
-        const chart = Chart.instances[chartId];
-        if (chart && chart.canvas && chart.canvas.id === 'payment-methods-chart') {
-            chart.destroy();
-        }
-    }
-    
-    // Instance değişkenini de temizle
-    if (paymentMethodChart) {
-        if (typeof paymentMethodChart.destroy === 'function') {
-            paymentMethodChart.destroy();
-        }
-        paymentMethodChart = null;
     }
 
     const labels = paymentSummary.map(p => p.name);
     const data = paymentSummary.map(p => p.amount);
     const colors = paymentSummary.map(p => p.color);
 
-    paymentMethodChart = new Chart(document.getElementById('payment-methods-chart'), {
+    // Yeni canvas'ı kullan
+    const finalCanvas = document.getElementById('payment-methods-chart');
+    if (!finalCanvas) {
+        isLoadingPaymentChart = false;
+        return;
+    }
+
+    paymentMethodChart = new Chart(finalCanvas, {
         type: 'doughnut',
         data: {
             labels: labels,
