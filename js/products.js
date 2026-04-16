@@ -607,9 +607,9 @@ function openProductModal(productId = null) {
             document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier || 3;
             
             // Shot fiyatlarını yükle
-            const extraOptions = product.extraOptions || {};
-            document.getElementById('shot-espresso-price').value = extraOptions.shotEspresso || 5;
-            document.getElementById('shot-syrup-price').value = extraOptions.shotSyrup || 3;
+            const extraOptions = product.extraOptions ?? {};
+            document.getElementById('shot-espresso-price').value = extraOptions.shotEspresso ?? 5;
+            document.getElementById('shot-syrup-price').value = extraOptions.shotSyrup ?? 3;
 
             iconOptions.forEach(opt => {
                 if (opt.getAttribute('data-icon') === product.icon) {

@@ -335,15 +335,31 @@ async function loadPaymentMethodsChart() {
         return;
     }
 
-    if (paymentMethodChart) {
-        paymentMethodChart.destroy();
+    // Chart.js "Canvas is already in use" hatasını önle
+    // Tüm Chart.js chart'larını temizle
+    for (const chartId in Chart.instances) {
+        const chart = Chart.instances[chartId];
+        if (chart && chart.canvas && chart.canvas.id === 'payment-methods-chart') {
+            chart.destroy();
+        }
     }
+    
+    // Instance değişkenini de temizle
+    if (paymentMethodChart) {
+        if (typeof paymentMethodChart.destroy === 'function') {
+            paymentMethodChart.destroy();
+        }
+        paymentMethodChart = null;
+    }
+
+    const ctx = document.getElementById('payment-methods-chart');
+    if (!ctx) return;
 
     const labels = paymentSummary.map(p => p.name);
     const data = paymentSummary.map(p => p.amount);
     const colors = paymentSummary.map(p => p.color);
 
-    paymentMethodChart = new Chart(ctx, {
+    paymentMethodChart = new Chart(document.getElementById('payment-methods-chart'), {
         type: 'doughnut',
         data: {
             labels: labels,
