@@ -324,9 +324,16 @@ async function loadTop10Products(date) {
 }
 
 // Ödeme metodları grafiği
+let isLoadingPaymentChart = false;
+
 async function loadPaymentMethodsChart() {
+    // Zaten yükleniyorsa, tekrar yükleme
+    if (isLoadingPaymentChart) return;
+    
     const ctx = document.getElementById('payment-methods-chart');
     if (!ctx) return;
+    
+    isLoadingPaymentChart = true;
     
     const todaySales = await getTodaySales();
     const paymentSummary = calculateDailyPaymentSummary(todaySales);
@@ -351,9 +358,6 @@ async function loadPaymentMethodsChart() {
         }
         paymentMethodChart = null;
     }
-
-    const ctx = document.getElementById('payment-methods-chart');
-    if (!ctx) return;
 
     const labels = paymentSummary.map(p => p.name);
     const data = paymentSummary.map(p => p.amount);
@@ -395,6 +399,8 @@ async function loadPaymentMethodsChart() {
             }
         }
     });
+    
+    isLoadingPaymentChart = false;
 }
 
 // Günlük ödeme metodu özeti hesapla
