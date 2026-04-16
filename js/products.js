@@ -605,9 +605,9 @@ function openProductModal(productId = null) {
             
             // Boy fiyat farklarını yükle
             const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
-            document.getElementById('size-small-price').value = sizePrices.small?.priceModifier || 0;
-            document.getElementById('size-regular-price').value = sizePrices.regular?.priceModifier || 5;
-            document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier || 3;
+            document.getElementById('size-small-price').value = sizePrices.small?.priceModifier ?? 0;
+            document.getElementById('size-regular-price').value = sizePrices.regular?.priceModifier ?? 5;
+            document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier ?? 3;
             
             // Shot fiyatlarını yükle
             const extraOptions = product.extraOptions ?? {};
