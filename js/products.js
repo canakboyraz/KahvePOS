@@ -930,27 +930,33 @@ function openSizePopover(productId, cardElement) {
         
         <div class="extra-options-section">
             <div class="size-options-label" style="margin-top: 1rem;">🥛 Ekstra Seçenekler:</div>
-            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" id="almond-milk-check" onchange="toggleAlmondMilk(this.checked)">
-                <div class="almond-milk-info">
-                    <span class="almond-milk-name">Badem Sütü</span>
-                    <span class="almond-milk-price">+${almondPrice} ₺</span>
-                </div>
-            </label>
-            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" id="shot-espresso-check" onchange="toggleShotEspresso(this.checked)">
-                <div class="almond-milk-info">
-                    <span class="almond-milk-name">+1 Shot Espresso</span>
-                    <span class="almond-milk-price">+${shotEspressoPrice} ₺</span>
-                </div>
-            </label>
-            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" id="shot-syrup-check" onchange="toggleShotSyrup(this.checked)">
-                <div class="almond-milk-info">
-                    <span class="almond-milk-name">+1 Shot Şurup</span>
-                    <span class="almond-milk-price">+${shotSyrupPrice} ₺</span>
-                </div>
-            </label>
+            ${almondPrice > 0 ? `
+                <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" id="almond-milk-check" onchange="toggleAlmondMilk(this.checked)">
+                    <div class="almond-milk-info">
+                        <span class="almond-milk-name">Badem Sütü</span>
+                        <span class="almond-milk-price">+${almondPrice} ₺</span>
+                    </div>
+                </label>
+            ` : ''}
+            ${shotEspressoPrice > 0 ? `
+                <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" id="shot-espresso-check" onchange="toggleShotEspresso(this.checked)">
+                    <div class="almond-milk-info">
+                        <span class="almond-milk-name">+1 Shot Espresso</span>
+                        <span class="almond-milk-price">+${shotEspressoPrice} ₺</span>
+                    </div>
+                </label>
+            ` : ''}
+            ${shotSyrupPrice > 0 ? `
+                <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" id="shot-syrup-check" onchange="toggleShotSyrup(this.checked)">
+                    <div class="almond-milk-info">
+                        <span class="almond-milk-name">+1 Shot Şurup</span>
+                        <span class="almond-milk-price">+${shotSyrupPrice} ₺</span>
+                    </div>
+                </label>
+            ` : ''}
         </div>
         `;
     
