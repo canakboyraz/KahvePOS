@@ -693,7 +693,9 @@ async function saveProduct(event) {
                         cost_price: updatedProduct.costPrice,
                         sale_price: updatedProduct.salePrice,
                         icon: updatedProduct.icon,
-                        active: updatedProduct.active
+                        active: updatedProduct.active,
+                        size_prices: updatedProduct.sizePrices,
+                        extra_options: updatedProduct.extraOptions
                     })
                     .eq('id', productId);
 
@@ -729,7 +731,9 @@ async function saveProduct(event) {
                         cost_price: newProduct.costPrice,
                         sale_price: newProduct.salePrice,
                         icon: newProduct.icon,
-                        active: newProduct.active
+                        active: newProduct.active,
+                        size_prices: newProduct.sizePrices,
+                        extra_options: newProduct.extraOptions
                     });
 
                 if (error) throw error;
