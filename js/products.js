@@ -917,12 +917,9 @@ function openSizePopover(productId, cardElement) {
     const almondPrice = (product.sizePrices && product.sizePrices.almond)
         ? product.sizePrices.almond.priceModifier
         : DEFAULT_ALMOND_MILK_PRICE;
-    const shotEspressoPrice = (product.extraOptions && product.extraOptions.shotEspresso)
-        ? product.extraOptions.shotEspresso
-        : DEFAULT_SHOT_ESPRESSO_PRICE;
-    const shotSyrupPrice = (product.extraOptions && product.extraOptions.shotSyrup)
-        ? product.extraOptions.shotSyrup
-        : DEFAULT_SHOT_SYRUP_PRICE;
+    // Nullish coalescing kullan - 0 değerini kabul et
+    const shotEspressoPrice = product.extraOptions?.shotEspresso ?? DEFAULT_SHOT_ESPRESSO_PRICE;
+    const shotSyrupPrice = product.extraOptions?.shotSyrup ?? DEFAULT_SHOT_SYRUP_PRICE;
     
     // Boy seçeneklerini render et (Badem Sütü hariç)
     const sizeOptionsContainer = document.getElementById('size-options-container');
