@@ -3268,7 +3268,8 @@ body {
     font-size: 2rem;
 }
 
-/* Badem Sütü Checkbox */
+/* Ekstra Seçenekler Section */
+.extra-options-section,
 .almond-milk-section {
     margin-top: 0.5rem;
     border-top: 1px dashed var(--color-border);
