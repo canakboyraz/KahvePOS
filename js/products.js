@@ -685,7 +685,12 @@ async function saveProduct(event) {
 
         if (productsCheckSupabaseConnection()) {
             try {
-                const { error } = await window.supabase
+                console.log('Supabase güncelleme gönderiliyor:', {
+                    size_prices: updatedProduct.sizePrices,
+                    extra_options: updatedProduct.extraOptions
+                });
+                
+                const { data, error } = await window.supabase
                     .from('products')
                     .update({
                         name: updatedProduct.name,
@@ -697,9 +702,12 @@ async function saveProduct(event) {
                         size_prices: updatedProduct.sizePrices,
                         extra_options: updatedProduct.extraOptions
                     })
-                    .eq('id', productId);
+                    .eq('id', productId)
+                    .select();
 
                 if (error) throw error;
+                
+                console.log('Supabase güncelleme başarılı:', data);
                 showToast('Ürün güncellendi (Senkronize)', 'success');
             } catch (error) {
                 console.error('Supabase güncelleme hatası:', error);
