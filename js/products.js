@@ -606,6 +606,11 @@ function openProductModal(productId = null) {
             document.getElementById('size-regular-price').value = sizePrices.regular?.priceModifier || 5;
             document.getElementById('size-almond-price').value = sizePrices.almond?.priceModifier || 3;
             
+            // Shot fiyatlarını yükle
+            const extraOptions = product.extraOptions || {};
+            document.getElementById('shot-espresso-price').value = extraOptions.shotEspresso || 5;
+            document.getElementById('shot-syrup-price').value = extraOptions.shotSyrup || 3;
+
             iconOptions.forEach(opt => {
                 if (opt.getAttribute('data-icon') === product.icon) {
                     opt.classList.add('selected');
@@ -652,8 +657,12 @@ async function saveProduct(event) {
             name: 'Badem Sütü',
             priceModifier: parseFloat(document.getElementById('size-almond-price').value) || 3
         }
+    },
+    extraOptions: {
+        shotEspresso: parseFloat(document.getElementById('shot-espresso-price')?.value) || 5,
+        shotSyrup: parseFloat(document.getElementById('shot-syrup-price')?.value) || 3
     }
-    };
+};
     
     if (productData.salePrice <= productData.costPrice) {
         showToast('Satış fiyatı, maliyet fiyatından yüksek olmalıdır!', 'warning');
@@ -848,13 +857,17 @@ const DEFAULT_SIZE_OPTIONS = {
     'regular': { name: 'Büyük', priceModifier: 5 }
 };
 
-// Badem sütü eklemesi (checkbox)
+// Ekstra seçenekler (checkbox)
 const DEFAULT_ALMOND_MILK_PRICE = 3;
+const DEFAULT_SHOT_ESPRESSO_PRICE = 5;
+const DEFAULT_SHOT_SYRUP_PRICE = 3;
 
 // Seçili ürün ve boy bilgisi
 let selectedProduct = null;
 let selectedSize = 'regular';
 let selectedAlmondMilk = false; // Badem sütü seçimi
+let selectedShotEspresso = false; // +1 Shot Espresso seçimi
+let selectedShotSyrup = false; // +1 Shot Şurup seçimi
 let selectedProductCard = null; // Tıklanan ürün kartı
 
 /**
@@ -868,6 +881,8 @@ function openSizePopover(productId, cardElement) {
     selectedProductCard = cardElement;
     selectedSize = 'regular'; // Varsayılan
     selectedAlmondMilk = false; // Badem sütü varsayılan kapalı
+    selectedShotEspresso = false; // Shot Espresso varsayılan kapalı
+    selectedShotSyrup = false; // Shot Şurup varsayılan kapalı
     
     const popover = document.getElementById('size-popover');
     if (!popover) {
@@ -882,10 +897,17 @@ function openSizePopover(productId, cardElement) {
     
     // Ürünün boy fiyat farklarını al (varsayılan değerleri kullan)
     const sizePrices = product.sizePrices || DEFAULT_SIZE_OPTIONS;
-    // Badem sütü fiyatını al
+    
+    // Ekstra seçenek fiyatlarını al
     const almondPrice = (product.sizePrices && product.sizePrices.almond)
         ? product.sizePrices.almond.priceModifier
         : DEFAULT_ALMOND_MILK_PRICE;
+    const shotEspressoPrice = (product.extraOptions && product.extraOptions.shotEspresso)
+        ? product.extraOptions.shotEspresso
+        : DEFAULT_SHOT_ESPRESSO_PRICE;
+    const shotSyrupPrice = (product.extraOptions && product.extraOptions.shotSyrup)
+        ? product.extraOptions.shotSyrup
+        : DEFAULT_SHOT_SYRUP_PRICE;
     
     // Boy seçeneklerini render et (Badem Sütü hariç)
     const sizeOptionsContainer = document.getElementById('size-options-container');
@@ -906,8 +928,8 @@ function openSizePopover(productId, cardElement) {
             `;
         }).join('')}
         
-        <div class="almond-milk-section">
-            <div class="size-options-label" style="margin-top: 1rem;">🥛 Ekstra Seçenek:</div>
+        <div class="extra-options-section">
+            <div class="size-options-label" style="margin-top: 1rem;">🥛 Ekstra Seçenekler:</div>
             <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
                 <input type="checkbox" id="almond-milk-check" onchange="toggleAlmondMilk(this.checked)">
                 <div class="almond-milk-info">
@@ -915,8 +937,22 @@ function openSizePopover(productId, cardElement) {
                     <span class="almond-milk-price">+${almondPrice} ₺</span>
                 </div>
             </label>
+            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                <input type="checkbox" id="shot-espresso-check" onchange="toggleShotEspresso(this.checked)">
+                <div class="almond-milk-info">
+                    <span class="almond-milk-name">+1 Shot Espresso</span>
+                    <span class="almond-milk-price">+${shotEspressoPrice} ₺</span>
+                </div>
+            </label>
+            <label class="almond-milk-checkbox" onclick="event.stopPropagation()">
+                <input type="checkbox" id="shot-syrup-check" onchange="toggleShotSyrup(this.checked)">
+                <div class="almond-milk-info">
+                    <span class="almond-milk-name">+1 Shot Şurup</span>
+                    <span class="almond-milk-price">+${shotSyrupPrice} ₺</span>
+                </div>
+            </label>
         </div>
-    `;
+        `;
     
     // Varsayılan seçimi işaretle
     document.querySelector(`[data-size="regular"]`)?.classList.add('selected');
@@ -957,6 +993,20 @@ function toggleAlmondMilk(checked) {
 }
 
 /**
+ * Shot Espresso seçimini değiştir
+ */
+function toggleShotEspresso(checked) {
+    selectedShotEspresso = checked;
+}
+
+/**
+ * Shot Şurup seçimini değiştir
+ */
+function toggleShotSyrup(checked) {
+    selectedShotSyrup = checked;
+}
+
+/**
  * Seçili boy ile sepete ekle
  */
 function addToCartWithSize() {
@@ -975,21 +1025,39 @@ function addToCartWithSize() {
         sizeOption = { name: 'Küçük', priceModifier: 0 };
     }
     
-    // Badem sütü fiyatı
+    // Ekstra seçenek fiyatları
     const almondPrice = (selectedProduct.sizePrices && selectedProduct.sizePrices.almond)
         ? selectedProduct.sizePrices.almond.priceModifier
         : DEFAULT_ALMOND_MILK_PRICE;
-    
-    // Final fiyat = ürün fiyatı + boy farkı + badem sütü (seçiliyse)
+    const shotEspressoPrice = (selectedProduct.extraOptions && selectedProduct.extraOptions.shotEspresso)
+        ? selectedProduct.extraOptions.shotEspresso
+        : DEFAULT_SHOT_ESPRESSO_PRICE;
+    const shotSyrupPrice = (selectedProduct.extraOptions && selectedProduct.extraOptions.shotSyrup)
+        ? selectedProduct.extraOptions.shotSyrup
+        : DEFAULT_SHOT_SYRUP_PRICE;
+
+    // Final fiyat = ürün fiyatı + boy farkı + ekstra seçenekler
     let finalPrice = selectedProduct.salePrice + (sizeOption.priceModifier || 0);
     if (selectedAlmondMilk) {
         finalPrice += almondPrice;
     }
-    
+    if (selectedShotEspresso) {
+        finalPrice += shotEspressoPrice;
+    }
+    if (selectedShotSyrup) {
+        finalPrice += shotSyrupPrice;
+    }
+
     // Sepetteki isim - null kontrolü
     let sizeName = sizeOption?.name || selectedSize || 'Standart';
     if (selectedAlmondMilk) {
         sizeName += ' + Badem Sütü';
+    }
+    if (selectedShotEspresso) {
+        sizeName += ' + Shot Espresso';
+    }
+    if (selectedShotSyrup) {
+        sizeName += ' + Shot Şurup';
     }
     
     // Son kontrol - sizeName hala null ise güvenlik için
@@ -998,11 +1066,13 @@ function addToCartWithSize() {
         console.error('sizeName null düzeltildi:', { sizeOption, selectedSize });
     }
     
-    // Sepete ekle (boy + badem sütü bilgisi ile)
+    // Sepete ekle (boy + tüm ekstra seçenekler)
     const existingItem = cart.find(item =>
         item.productId === selectedProduct.id &&
         item.size === selectedSize &&
-        item.almondMilk === selectedAlmondMilk
+        item.almondMilk === selectedAlmondMilk &&
+        item.shotEspresso === selectedShotEspresso &&
+        item.shotSyrup === selectedShotSyrup
     );
     
     if (existingItem) {
@@ -1017,7 +1087,9 @@ function addToCartWithSize() {
             quantity: 1,
             size: selectedSize,
             sizeName: sizeName,
-            almondMilk: selectedAlmondMilk
+            almondMilk: selectedAlmondMilk,
+            shotEspresso: selectedShotEspresso,
+            shotSyrup: selectedShotSyrup
         });
     }
     
@@ -1038,7 +1110,9 @@ function closeSizePopover() {
     selectedProduct = null;
     selectedProductCard = null;
     selectedSize = 'regular';
-    selectedAlmondMilk = false; // Badem sütü seçimini sıfırla
+    selectedAlmondMilk = false;
+    selectedShotEspresso = false;
+    selectedShotSyrup = false;
     
     document.removeEventListener('click', closeSizePopoverOutside);
 }
@@ -1083,7 +1157,11 @@ window.openSizePopover = openSizePopover;
 window.closeSizePopover = closeSizePopover;
 window.selectSize = selectSize;
 window.toggleAlmondMilk = toggleAlmondMilk;
+window.toggleShotEspresso = toggleShotEspresso;
+window.toggleShotSyrup = toggleShotSyrup;
 window.addToCartWithSize = addToCartWithSize;
 window.DEFAULT_SIZE_OPTIONS = DEFAULT_SIZE_OPTIONS;
 window.DEFAULT_ALMOND_MILK_PRICE = DEFAULT_ALMOND_MILK_PRICE;
+window.DEFAULT_SHOT_ESPRESSO_PRICE = DEFAULT_SHOT_ESPRESSO_PRICE;
+window.DEFAULT_SHOT_SYRUP_PRICE = DEFAULT_SHOT_SYRUP_PRICE;
 
