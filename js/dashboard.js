@@ -335,13 +335,12 @@ async function loadPaymentMethodsChart() {
     
     isLoadingPaymentChart = true;
     
-    // TÜM Chart.js instance'larını temizle (global cleanup)
-    Object.keys(Chart.instances).forEach(key => {
-        const chart = Chart.instances[key];
-        if (chart) {
-            chart.destroy();
-        }
-    });
+    // Chart.js v3+ için doğru destroy yöntemi
+    // Mevcut chart'ı bul ve destroy et
+    const existingChart = Chart.getChart(canvasEl);
+    if (existingChart) {
+        existingChart.destroy();
+    }
     
     // Local instance'ı da temizle
     if (paymentMethodChart) {
