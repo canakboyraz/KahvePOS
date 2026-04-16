@@ -7,7 +7,7 @@
 let currentReportPeriod = 'today';
 
 // Ödeme metodları global değişkenleri (reports sayfası için ayrı)
-let reportPaymentMethodChart = null;
+let reportsPagePaymentChart = null;
 
 function formatCurrency(value) {
     return `${(Number(value) || 0).toFixed(2)} TL`;
@@ -251,11 +251,11 @@ function renderPaymentMethodChart(sales) {
     }
     
     // Instance değişkenini de temizle
-    if (reportPaymentMethodChart) {
-        if (typeof reportPaymentMethodChart.destroy === 'function') {
-            reportPaymentMethodChart.destroy();
+    if (reportsPagePaymentChart) {
+        if (typeof reportsPagePaymentChart.destroy === 'function') {
+            reportsPagePaymentChart.destroy();
         }
-        reportPaymentMethodChart = null;
+        reportsPagePaymentChart = null;
     }
     
     // Canvas'ı yeniden oluştur (bazen bu gerekli)
@@ -272,7 +272,7 @@ function renderPaymentMethodChart(sales) {
     const data = paymentSummary.map(p => p.totalAmount);
     const colors = paymentSummary.map(p => p.color);
 
-    reportPaymentMethodChart = new Chart(ctx, {
+    reportsPagePaymentChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,

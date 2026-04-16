@@ -743,4 +743,7 @@ window.getSalesByDateRange = getSalesByDateRange;
 window.getLastNDaysSales = getLastNDaysSales;
 window.calculateDailySummary = calculateDailySummary;
 window.calculateProductSales = calculateProductSales;
+window.formatDate = formatDate;
+window.salesFormatDate = salesFormatDate;
+window.formatDateDisplay = formatDateDisplay;
 
