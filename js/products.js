@@ -655,12 +655,12 @@ async function saveProduct(event) {
         },
         almond: {
             name: 'Badem Sütü',
-            priceModifier: parseFloat(document.getElementById('size-almond-price').value) || 3
+            priceModifier: parseFloat(document.getElementById('size-almond-price').value) ?? 3
         }
     },
     extraOptions: {
-        shotEspresso: parseFloat(document.getElementById('shot-espresso-price')?.value) || 5,
-        shotSyrup: parseFloat(document.getElementById('shot-syrup-price')?.value) || 3
+        shotEspresso: parseFloat(document.getElementById('shot-espresso-price')?.value) ?? 5,
+        shotSyrup: parseFloat(document.getElementById('shot-syrup-price')?.value) ?? 3
     }
 };
     
