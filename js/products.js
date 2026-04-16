@@ -179,6 +179,9 @@ async function loadProducts() {
                     icon: p.icon || '☕',
                     // active yoksa is_active kullan, yoksa true
                     active: p.active ?? p.is_active ?? true,
+                    // Boy fiyatları ve ekstra seçenekler
+                    sizePrices: p.size_prices || {},
+                    extraOptions: p.extra_options || {},
                     createdAt: p.created_at,
                     updatedAt: p.updated_at
                 }));
