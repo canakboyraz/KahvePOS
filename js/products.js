@@ -650,11 +650,11 @@ async function saveProduct(event) {
         sizePrices: {
         small: {
             name: 'Küçük',
-            priceModifier: parseFloat(document.getElementById('size-small-price').value) || 0
+            priceModifier: parseFloat(document.getElementById('size-small-price').value) ?? 0
         },
         regular: {
             name: 'Büyük',
-            priceModifier: parseFloat(document.getElementById('size-regular-price').value) || 5
+            priceModifier: parseFloat(document.getElementById('size-regular-price').value) ?? 5
         },
         almond: {
             name: 'Badem Sütü',
