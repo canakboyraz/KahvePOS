@@ -630,48 +630,65 @@ function initPWA() {
     });
 }
 
-// ===== PERİYODİK SESSION HEALTH CHECK =====
-// Safari background tab token expire sorununu çözmek için
+// ===== PERİYODİK SESSION REFRESH =====
+// Session'ı sürekli canlı tutmak için token refresh
 
-let sessionHealthCheckInterval = null;
+let sessionRefreshInterval = null;
 
 function startSessionHealthCheck() {
-    // Her 2 dakikada bir session'ı kontrol et
-    if (sessionHealthCheckInterval) {
-        clearInterval(sessionHealthCheckInterval);
+    // Her 5 dakikada bir session'ı refresh et
+    if (sessionRefreshInterval) {
+        clearInterval(sessionRefreshInterval);
     }
     
-    sessionHealthCheckInterval = setInterval(async () => {
+    sessionRefreshInterval = setInterval(async () => {
         if (typeof window.supabase !== 'undefined') {
             try {
+                // Session'ı refresh et - bu token'ı yeniler
                 const { data: { session }, error } = await window.supabase.auth.getSession();
                 
-                if (!session || error) {
-                    console.warn('⚠️ Session expire oldu, logout yapılıyor');
-                    stopSessionHealthCheck();
+                if (session && !error) {
+                    // Token'ı yenile
+                    const { data: { session: refreshedSession }, error: refreshError } =
+                        await window.supabase.auth.refreshSession();
                     
-                    // Eğer kullanıcı login ekranında değilse, uyarı ver ve logout yap
-                    const loginModal = document.getElementById('login-modal');
-                    if (loginModal && loginModal.style.display === 'none') {
-                        showToast('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
-                        setTimeout(() => {
-                            if (typeof logout === 'function') logout();
-                        }, 2000);
+                    if (refreshError) {
+                        console.warn('⚠️ Session refresh hatası:', refreshError);
+                    } else {
+                        console.log('🔄 Session refresh edildi');
                     }
                 }
             } catch (e) {
-                console.error('Session health check hatası:', e);
+                console.error('Session refresh hatası:', e);
             }
         }
-    }, 2 * 60 * 1000); // 2 dakika
+    }, 5 * 60 * 1000); // 5 dakika
 }
 
 function stopSessionHealthCheck() {
-    if (sessionHealthCheckInterval) {
-        clearInterval(sessionHealthCheckInterval);
-        sessionHealthCheckInterval = null;
+    if (sessionRefreshInterval) {
+        clearInterval(sessionRefreshInterval);
+        sessionRefreshInterval = null;
     }
 }
+
+// Safari/PWA: Tab görünür olduğunda session'ı refresh et
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        if (typeof window.supabase !== 'undefined') {
+            try {
+                const { data: { session } } = await window.supabase.auth.getSession();
+                if (session) {
+                    // Session'ı refresh et
+                    await window.supabase.auth.refreshSession();
+                    console.log('🔄 Tab aktif - session refresh edildi');
+                }
+            } catch (e) {
+                console.error('Tab visibility refresh hatası:', e);
+            }
+        }
+    }
+});
 
 // ===== BAŞLANGIÇ =====
 

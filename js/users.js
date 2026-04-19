@@ -100,8 +100,9 @@ async function login(username, password) {
         };
 
         currentUser = user;
-        sessionStorage.setItem('kahvepos_current_user', JSON.stringify(user));
-        sessionStorage.setItem('kahvepos_login_time', Date.now().toString());
+        // Kalıcı oturum için localStorage kullan
+        localStorage.setItem('kahvepos_current_user', JSON.stringify(user));
+        localStorage.setItem('kahvepos_login_time', Date.now().toString());
 
         console.log('✅ Giriş başarılı:', user.username);
         return { success: true, message: 'Giriş başarılı', user };
@@ -121,10 +122,10 @@ async function logout() {
     }
     
     currentUser = null;
-    sessionStorage.removeItem('kahvepos_current_user');
-    sessionStorage.removeItem('kahvepos_login_time');
-    sessionStorage.removeItem('kahvepos_auth_products');
-    sessionStorage.removeItem('kahvepos_auth_reports');
+    localStorage.removeItem('kahvepos_current_user');
+    localStorage.removeItem('kahvepos_login_time');
+    localStorage.removeItem('kahvepos_auth_products');
+    localStorage.removeItem('kahvepos_auth_reports');
     
     console.log('👤 Çıkış yapıldı');
     return { success: true };
@@ -133,7 +134,7 @@ async function logout() {
 // ===== OTURUM KONTROLÜ =====
 
 function checkSession() {
-    const sessionUser = sessionStorage.getItem('kahvepos_current_user');
+    const sessionUser = localStorage.getItem('kahvepos_current_user');
     if (!sessionUser) {
         currentUser = null;
         return null;
