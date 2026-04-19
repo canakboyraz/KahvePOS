@@ -475,6 +475,9 @@ function renderProductsGrid() {
         filteredProducts = filteredProducts.filter(p => p.category === selectedCategory);
     }
     
+    // Alfabetik sırala (Türkçe karakter desteği)
+    filteredProducts.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+    
     if (searchQuery) {
         filteredProducts = filteredProducts.filter(p => {
             const nameMatch = p.name.toLowerCase().includes(searchQuery);
@@ -541,7 +544,10 @@ function renderProductsList() {
     
     if (emptyState) emptyState.style.display = 'none';
     
-    listContainer.innerHTML = allProducts.map(product => {
+    // Alfabetik sırala (Türkçe karakter desteği)
+    const sortedProducts = [...allProducts].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+    
+    listContainer.innerHTML = sortedProducts.map(product => {
         const category = CATEGORIES[product.category];
         const profit = product.salePrice - product.costPrice;
         
