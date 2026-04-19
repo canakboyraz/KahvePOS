@@ -58,6 +58,11 @@ async function performLogin() {
             startAutoLogoutTimer();
         }
         
+        // Session health check'i başlat (Safari token expire koruması)
+        if (typeof startSessionHealthCheck === 'function') {
+            startSessionHealthCheck();
+        }
+        
         // Dashboard sayfasına başla
         performPageSwitch('dashboard');
     } else {
@@ -79,6 +84,11 @@ function logout() {
         }
         if (typeof sessionWarningTimeout !== 'undefined' && sessionWarningTimeout) {
             clearTimeout(sessionWarningTimeout);
+        }
+        
+        // Session health check'i durdur
+        if (typeof stopSessionHealthCheck === 'function') {
+            stopSessionHealthCheck();
         }
         
         logoutUser();
@@ -620,6 +630,49 @@ function initPWA() {
     });
 }
 
+// ===== PERİYODİK SESSION HEALTH CHECK =====
+// Safari background tab token expire sorununu çözmek için
+
+let sessionHealthCheckInterval = null;
+
+function startSessionHealthCheck() {
+    // Her 2 dakikada bir session'ı kontrol et
+    if (sessionHealthCheckInterval) {
+        clearInterval(sessionHealthCheckInterval);
+    }
+    
+    sessionHealthCheckInterval = setInterval(async () => {
+        if (typeof window.supabase !== 'undefined') {
+            try {
+                const { data: { session }, error } = await window.supabase.auth.getSession();
+                
+                if (!session || error) {
+                    console.warn('⚠️ Session expire oldu, logout yapılıyor');
+                    stopSessionHealthCheck();
+                    
+                    // Eğer kullanıcı login ekranında değilse, uyarı ver ve logout yap
+                    const loginModal = document.getElementById('login-modal');
+                    if (loginModal && loginModal.style.display === 'none') {
+                        showToast('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
+                        setTimeout(() => {
+                            if (typeof logout === 'function') logout();
+                        }, 2000);
+                    }
+                }
+            } catch (e) {
+                console.error('Session health check hatası:', e);
+            }
+        }
+    }, 2 * 60 * 1000); // 2 dakika
+}
+
+function stopSessionHealthCheck() {
+    if (sessionHealthCheckInterval) {
+        clearInterval(sessionHealthCheckInterval);
+        sessionHealthCheckInterval = null;
+    }
+}
+
 // ===== BAŞLANGIÇ =====
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -642,6 +695,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Dashboard'a git
         performPageSwitch('dashboard');
+        
+        // Session health check'i başlat
+        startSessionHealthCheck();
     }
     
     // İlk ekranı hazırla

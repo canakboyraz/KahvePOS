@@ -1,21 +1,14 @@
 /**
- * Sales.js - Hybrid Supabase Mode v4.0
- * Satış işlemleri modülü - Online (Supabase) + Offline (localStorage) desteği
+ * Sales.js - Supabase Only Mode v5.0
+ * Satış işlemleri modülü - Sadece Supabase kullanır
+ * LocalStorage kullanılmaz - tüm veriler Supabase'den gelir
  */
-
-// Durum değişkenleri
-let salesIsOnline = navigator.onLine;
-let salesOfflineQueue = [];
-let localSalesCache = [];
 
 // ===== SUPABASE BAĞLANTI KONTROLÜ =====
 
-function salesCheckSupabaseConnection() {
-    return typeof window.supabase !== 'undefined' &&
-           window.supabase &&
-           salesIsOnline;
+function checkSupabaseConnection() {
+    return typeof window.supabase !== 'undefined' && window.supabase;
 }
-
 
 function isValidUuid(value) {
     return typeof value === 'string' &&
@@ -55,9 +48,6 @@ function buildSupabaseInsertPayload(newSale, options = {}) {
     const userId = getCurrentSupabaseUserId();
     const createdAt = newSale.createdAt || new Date().toISOString();
     
-    // Debug: createdAt değerini kontrol et
-    console.log('🔍 salesFormatDate GİRİŞ:', { createdAt, typeof: typeof createdAt });
-    
     const basePayload = {
         total_amount: newSale.totalAmount || 0,
         total_cost: newSale.totalCost || 0,
@@ -90,6 +80,13 @@ function buildSupabaseInsertPayload(newSale, options = {}) {
 }
 
 async function insertSaleToSupabase(newSale, options = {}) {
+    // Session kontrolü ve refresh
+    const { data: { session } } = await window.supabase.auth.getSession();
+    if (!session) {
+        console.error('❌ Oturum bulunamadı veya süre doldu');
+        throw new Error('Oturum süreniz doldu. Lütfen tekrar giriş yapın.');
+    }
+
     const extendedPayload = buildSupabaseInsertPayload(newSale, {
         includeId: options.includeId,
         minimalSchema: false
@@ -100,7 +97,7 @@ async function insertSaleToSupabase(newSale, options = {}) {
         .insert(extendedPayload)
         .select();
 
-    // 001 schema gibi eski kurulumlarda olmayan kolonlara fallback yap
+    // Eski schema için fallback
     if (error && (error.code === '42703' || /column .* does not exist/i.test(error.message || ''))) {
         const minimalPayload = buildSupabaseInsertPayload(newSale, {
             includeId: options.includeId,
@@ -116,268 +113,75 @@ async function insertSaleToSupabase(newSale, options = {}) {
     return { data, error };
 }
 
-function buildSaleDeleteFilter(data) {
-    const filters = [];
-    if (data?.id) filters.push(`id.eq.${data.id}`);
-    if (data?.supabaseId) filters.push(`id.eq.${data.supabaseId}`);
-    return filters.join(',');
-}
-
-// ===== OFFLINE QUEUE =====
-
-function loadSalesOfflineQueue() {
-    try {
-        salesOfflineQueue = JSON.parse(localStorage.getItem('sales_offline_queue') || '[]');
-    } catch (e) {
-        salesOfflineQueue = [];
-    }
-}
-
-function saveSalesOfflineQueue() {
-    try {
-        localStorage.setItem('sales_offline_queue', JSON.stringify(salesOfflineQueue));
-    } catch (e) {
-        console.error('Sales offline queue kaydedilemedi:', e);
-    }
-}
-
-function addSalesToOfflineQueue(operation, data) {
-    salesOfflineQueue.push({
-        id: Date.now().toString(),
-        operation,
-        data,
-        timestamp: new Date().toISOString()
-    });
-    saveSalesOfflineQueue();
-}
-
-async function syncSalesOfflineChanges() {
-    if (!salesCheckSupabaseConnection() || salesOfflineQueue.length === 0) {
-        return;
-    }
-
-    const initialQueueLength = salesOfflineQueue.length;
-    const failedItems = [];
-
-    for (const item of salesOfflineQueue) {
-        try {
-            switch (item.operation) {
-                case 'add':
-                    if (isValidUuid(item.data?.id)) {
-                        const existingCheck = await window.supabase
-                            .from('sales')
-                            .select('id')
-                            .eq('id', item.data.id)
-                            .maybeSingle();
-
-                        if (existingCheck.error) throw existingCheck.error;
-
-                        if (existingCheck.data) {
-                            const updatePayload = {
-                                total_amount: item.data.totalAmount || 0,
-                                total_cost: item.data.totalCost || 0,
-                                payment_method: normalizePaymentMethod(item.data),
-                                items: item.data.items || []
-                            };
-
-                            const { error: updateError } = await window.supabase
-                                .from('sales')
-                                .update(updatePayload)
-                                .eq('id', item.data.id);
-
-                            if (updateError) throw updateError;
-                            break;
-                        }
-                    }
-
-                    const insertResult = await insertSaleToSupabase(item.data, { includeId: true });
-                    if (insertResult.error) throw insertResult.error;
-                    break;
-                case 'delete':
-                    const deleteFilter = buildSaleDeleteFilter(item.data);
-                    if (!deleteFilter) break;
-                    const { error: deleteError } = await window.supabase
-                        .from('sales')
-                        .delete()
-                        .or(deleteFilter);
-                    if (deleteError) throw deleteError;
-                    break;
-            }
-        } catch (error) {
-            console.error('Sales sync hatasi:', error);
-            failedItems.push(item);
-        }
-    }
-
-    salesOfflineQueue = failedItems;
-    saveSalesOfflineQueue();
-
-    if (failedItems.length === 0 && initialQueueLength > 0) {
-        showToast('Satis verileri senkronize edildi', 'success');
-    }
-}
-
-// ===== LOCAL CACHE =====
-
-function updateLocalSaleCache(supabaseSale) {
-    const formattedSale = {
-        id: supabaseSale.id,
-        items: supabaseSale.items || [],
-        totalAmount: supabaseSale.total_amount,
-        totalCost: supabaseSale.total_cost,
-        profit: supabaseSale.profit,
-        discountAmount: supabaseSale.discount_amount || 0,
-        paymentMethod: supabaseSale.payment_method,
-        createdBy: supabaseSale.created_by,
-        createdAt: supabaseSale.created_at,
-        updatedAt: supabaseSale.updated_at,
-        syncedAt: supabaseSale.synced_at
+function fromSupabaseSale(s) {
+    return {
+        id: s.id,
+        items: s.items || [],
+        totalAmount: s.total_amount,
+        totalCost: s.total_cost,
+        profit: s.profit,
+        discountAmount: s.discount_amount || 0,
+        paymentMethod: s.payment_method,
+        payment_method_text: s.payment_method_text,
+        createdBy: s.created_by,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+        syncedAt: s.synced_at
     };
-
-    const existingIndex = localSalesCache.findIndex(s => s.id === formattedSale.id);
-    if (existingIndex !== -1) {
-        localSalesCache[existingIndex] = formattedSale;
-    } else {
-        localSalesCache.push(formattedSale);
-    }
-
-    Storage.saveSales(localSalesCache);
 }
 
-// ===== TÜM SATIŞLARI GETİR =====
+// ===== TÜM SATIŞLARI GETİR (Supabase Only) =====
 
 async function getAllSales() {
-    loadSalesOfflineQueue();
-    localSalesCache = Storage.getSales() || [];
-    
-    console.log('📊 getAllSales çağrıldı', {
-        online: salesIsOnline,
-        supabaseExists: !!window.supabase,
-        localCacheSize: localSalesCache.length,
-        checkResult: salesCheckSupabaseConnection()
-    });
-
-    // ⚠️ DEBUG: Supabase bağlantı problemi teşhisi
-    if (!window.supabase) {
-        console.error('❌ KRITIK: window.supabase tanımlı DEĞİL! SDK yüklenmemiş olabilir');
-    }
-    if (!salesIsOnline) {
-        console.warn('⚠️ Offline modda - localStorage kullanılıyor');
+    if (!checkSupabaseConnection()) {
+        console.error('❌ Supabase bağlantısı yok!');
+        showToast('İnternet bağlantısı gerekli', 'error');
+        return [];
     }
 
-    if (salesCheckSupabaseConnection()) {
-        try {
-            // SUPABASE'DEN VERI ÇEK - KRITIK DÜZELTME
-            const { data, error } = await window.supabase
-                .from('sales')
-                .select('*')
-                .order('created_at', { ascending: false });
+    try {
+        const { data, error } = await window.supabase
+            .from('sales')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            if (data && data.length > 0) {
-                const formattedSales = data.map(s => ({
-                    id: s.id,
-                    items: s.items || [],
-                    totalAmount: s.total_amount,
-                    totalCost: s.total_cost,
-                    profit: s.profit,
-                    discountAmount: s.discount_amount || 0,
-                    paymentMethod: s.payment_method,
-                    payment_method_text: s.payment_method_text,
-                    createdBy: s.created_by,
-                    createdAt: s.created_at,
-                    updatedAt: s.updated_at,
-                    syncedAt: s.synced_at
-                }));
-
-                // MERGE LOGIC: Supabase + localStorage birleştir
-                // Local'de Supabase'de olmayan satışlar varsa ekle
-                const supabaseIds = new Set(formattedSales.map(s => s.id));
-                const localOnly = localSalesCache.filter(s => !supabaseIds.has(s.id));
-                
-                localSalesCache = [...formattedSales, ...localOnly];
-                Storage.saveSales(localSalesCache);
-                
-                console.log('📊 getAllSales sonucu - Supabase+Local merged:', {
-                    fromSupabase: formattedSales.length,
-                    fromLocalOnly: localOnly.length,
-                    totalMerged: localSalesCache.length
-                });
-                
-                return localSalesCache;
-            }
-        } catch (error) {
-            console.error('❌ Supabase satış yükleme hatası:', error);
-        }
-    } else {
-        console.warn('⚠️ Supabase bağlantısı yok, localStorage kullanılıyor');
+        const formattedSales = (data || []).map(fromSupabaseSale);
+        console.log(`✅ ${formattedSales.length} satış yüklendi (Supabase)`);
+        
+        return formattedSales;
+    } catch (error) {
+        console.error('❌ Supabase satış yükleme hatası:', error);
+        showToast('Satışlar yüklenirken hata oluştu', 'error');
+        return [];
     }
-
-    // Offline mod - localStorage'u kullan
-    console.log('📊 getAllSales - localStorage fallback:', localSalesCache.length);
-    return localSalesCache;
 }
 
 // ===== BELİRLİ BİR TARİHTEKİ SATIŞLAR =====
 
 async function getSalesByDate(date) {
-    const targetDate = formatDate(date);
-    
-    console.log('📅 getSalesByDate çağrıldı:', targetDate);
-    
-    // Önce Supabase'den tarih bazlı sorgu dene (daha hızlı)
-    if (salesCheckSupabaseConnection()) {
-        try {
-            const { data, error } = await window.supabase
-                .from('sales')
-                .select('*')
-                .eq('sale_date', targetDate)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            if (data && data.length > 0) {
-                const formattedSales = data.map(s => ({
-                    id: s.id,
-                    items: s.items || [],
-                    totalAmount: s.total_amount,
-                    totalCost: s.total_cost,
-                    profit: s.profit,
-                    discountAmount: s.discount_amount || 0,
-                    paymentMethod: s.payment_method,
-                    payment_method_text: s.payment_method_text,
-                    createdBy: s.created_by,
-                    createdAt: s.created_at,
-                    updatedAt: s.updated_at
-                }));
-
-                // Local'de de o tarihte satış varsa merge et
-                const localSales = await getAllSales();
-                const supabaseIds = new Set(formattedSales.map(s => s.id));
-                const localForDate = localSales.filter(sale => {
-                    const saleDate = formatDate(new Date(sale.createdAt));
-                    return saleDate === targetDate && !supabaseIds.has(sale.id);
-                });
-                
-                const merged = [...formattedSales, ...localForDate];
-                console.log('📅 getSalesByDate Supabase sonucu:', merged.length);
-                return merged;
-            }
-        } catch (error) {
-            console.error('❌ getSalesByDate Supabase hatası:', error);
-        }
+    if (!checkSupabaseConnection()) {
+        showToast('İnternet bağlantısı gerekli', 'error');
+        return [];
     }
+
+    const targetDate = salesFormatDate(date);
     
-    // Fallback: Tüm sales'ten filtrele
-    const sales = await getAllSales();
-    const filtered = sales.filter(sale => {
-        const saleDate = formatDate(new Date(sale.createdAt));
-        return saleDate === targetDate;
-    });
-    
-    console.log('📅 getSalesByDate fallback sonucu:', filtered.length);
-    return filtered;
+    try {
+        const { data, error } = await window.supabase
+            .from('sales')
+            .select('*')
+            .eq('sale_date', targetDate)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map(fromSupabaseSale);
+    } catch (error) {
+        console.error('❌ getSalesByDate hatası:', error);
+        return [];
+    }
 }
 
 // ===== BUGÜNÜN SATIŞLARI =====
@@ -386,12 +190,15 @@ async function getTodaySales() {
     return await getSalesByDate(new Date());
 }
 
-// ===== SATIŞ EKLEME =====
+// ===== SATIŞ EKLEME (Supabase Only) =====
 
 async function addSale(saleData) {
-    const localId = saleData.id || generateSaleUUID();
+    if (!checkSupabaseConnection()) {
+        showToast('İnternet bağlantısı gerekli', 'error');
+        return null;
+    }
+
     const newSale = {
-        id: localId,
         items: saleData.items || [],
         totalAmount: saleData.totalAmount || 0,
         totalCost: saleData.totalCost || 0,
@@ -403,66 +210,28 @@ async function addSale(saleData) {
         createdAt: saleData.createdAt || new Date().toISOString()
     };
 
-    // Local storage'a ekle (her zaman)
-    localSalesCache.unshift(newSale);
-    Storage.saveSales(localSalesCache);
+    console.log('📦 Satış verisi:', newSale);
 
-    // Supabase'e kaydet
-    console.log('🔍 SUPABASE KONTROL BAŞLIYOR...', {
-        supabaseDefined: typeof window.supabase !== 'undefined',
-        supabaseExists: !!window.supabase,
-        isOnline: salesIsOnline,
-        checkResult: salesCheckSupabaseConnection(),
-        supabaseFromWindow: !!window.supabase,
-        supabaseFrom: window.supabase ? 'found' : 'NOT FOUND'
-    });
+    try {
+        const result = await insertSaleToSupabase(newSale, { includeId: false });
+        console.log('📤 Supabase cevabı:', result);
+        
+        const { data, error } = result;
 
-    if (salesCheckSupabaseConnection()) {
-        console.log('✅ Supabase bağlantısı var, kayıt deneniyor...');
-        try {
-            const { data, error } = await insertSaleToSupabase(newSale, { includeId: false });
+        if (error) throw error;
 
-            console.log('📊 INSERT SONUCU:', { data, error });
-
-            if (error) {
-                console.error('❌ Supabase INSERT error:', error);
-                throw error;
-            }
-
-            // Supabase'in urettigi UUID'yi localStorage'a da kaydet
-            // VE local ID'yi Supabase ID ile DEĞİŞTİR (duplicate engelle!)
-            if (data && data[0]) {
-                const supabaseId = data[0].id;
-                const cacheIndex = localSalesCache.findIndex(s => s.id === localId);
-                if (cacheIndex !== -1) {
-                    localSalesCache[cacheIndex].id = supabaseId;  // ID'yi Supabase ile eşitle
-                    localSalesCache[cacheIndex].supabaseId = supabaseId;
-                }
-                newSale.id = supabaseId;
-                newSale.supabaseId = supabaseId;
-                Storage.saveSales(localSalesCache);
-            }
-            console.log("✅ Satis Supabase'e kaydedildi:", data);
-        } catch (error) {
-            console.error('❌ Supabase satis ekleme hatasi:', error.message || error);
-            console.error('❌ HATA DETAYI:', error);
-            addSalesToOfflineQueue('add', newSale);
+        if (data && data[0]) {
+            console.log('✅ Satış Supabase\'e kaydedildi:', data[0].id);
+            return fromSupabaseSale(data[0]);
         }
-    } else {
-        console.warn('⚠️ Supabase baglantisi yok, offline kuyruga ekleniyor');
-        addSalesToOfflineQueue('add', newSale);
+
+        return newSale;
+    } catch (error) {
+        console.error('❌ Satış ekleme hatası:', error);
+        console.error('❌ Hata detayı:', JSON.stringify(error));
+        showToast('Satış kaydedilirken hata oluştu: ' + error.message, 'error');
+        return null;
     }
-
-    return newSale;
-}
-
-// UUID oluşturucu
-function generateSaleUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }
 
 // Mevcut kullanıcı ID'sini al
@@ -477,27 +246,16 @@ function getCurrentUserId() {
         }
     }
 
-    const legacySession = localStorage.getItem('currentUser');
-    if (legacySession) {
-        try {
-            const user = JSON.parse(legacySession);
-            return user.username || user.id || 'unknown';
-        } catch (e) {
-            return 'unknown';
-        }
-    }
-
     return 'unknown';
 }
 
 // ===== TARİH FORMATLAMA =====
-// Not: DateUtils (utils.js) yüklendiyse onu kullan, yoksa fallback
 
 function salesFormatDate(date) {
     if (typeof DateUtils !== 'undefined') {
         return DateUtils.formatDate(date);
     }
-    // Fallback: Eski formatDate fonksiyonu
+    // Fallback
     const d = new Date(date);
     if (isNaN(d.getTime())) {
         console.warn('⚠️ salesFormatDate geçersiz tarih:', date);
@@ -513,7 +271,7 @@ function salesFormatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-// Global formatDate fonksiyonu (legacy kod için)
+// Global formatDate fonksiyonu
 function formatDate(date) {
     return salesFormatDate(date);
 }
@@ -556,7 +314,7 @@ function calculateDailySummary(sales) {
     };
 }
 
-// ===== ÜRÜRÜN BAZLI SATIŞ ANALİZİ =====
+// ===== ÜRÜN BAZLI SATIŞ ANALİZİ =====
 
 function calculateProductSales(sales) {
     const productStats = {};
@@ -589,56 +347,61 @@ function calculateProductSales(sales) {
         .sort((a, b) => b.quantity - a.quantity);
 }
 
-// ===== SATIŞ SİLME =====
+// ===== SATIŞ SİLME (Supabase Only) =====
 
 async function deleteSale(saleId) {
-    const saleToDelete = localSalesCache.find(sale => sale.id === saleId);
-    const deletePayload = {
-        id: saleId,
-        supabaseId: saleToDelete?.supabaseId
-    };
-
-    // Local storage'dan sil
-    localSalesCache = localSalesCache.filter(sale => sale.id !== saleId);
-    Storage.saveSales(localSalesCache);
-
-    if (salesCheckSupabaseConnection()) {
-        try {
-            const deleteFilter = buildSaleDeleteFilter(deletePayload);
-            if (!deleteFilter) throw new Error('Silinecek satış kimliği bulunamadı');
-
-            const { error } = await window.supabase
-                .from('sales')
-                .delete()
-                .or(deleteFilter);
-
-            if (error) throw error;
-            showToast('Satış silindi (Senkronize)', 'success');
-        } catch (error) {
-            console.error('Supabase satış silme hatası:', error);
-            addSalesToOfflineQueue('delete', deletePayload);
-            showToast('Satış silindi (Offline kuyrukta)', 'warning');
-        }
-    } else {
-        addSalesToOfflineQueue('delete', deletePayload);
+    if (!checkSupabaseConnection()) {
+        showToast('İnternet bağlantısı gerekli', 'error');
+        return false;
     }
 
-    return true;
+    if (!confirm('Bu satışı silmek istediğinize emin misiniz?')) {
+        return false;
+    }
+
+    try {
+        const { error } = await window.supabase
+            .from('sales')
+            .delete()
+            .eq('id', saleId);
+
+        if (error) throw error;
+        
+        showToast('Satış silindi', 'success');
+        return true;
+    } catch (error) {
+        console.error('❌ Satış silme hatası:', error);
+        showToast('Satış silinirken hata oluştu', 'error');
+        return false;
+    }
 }
 
 // ===== TARİH ARALIĞI =====
 
 async function getSalesByDateRange(startDate, endDate) {
-    const sales = await getAllSales();
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    
-    return sales.filter(sale => {
-        const saleDate = new Date(sale.createdAt);
-        return saleDate >= start && saleDate <= end;
-    });
+    if (!checkSupabaseConnection()) {
+        showToast('İnternet bağlantısı gerekli', 'error');
+        return [];
+    }
+
+    const start = salesFormatDate(startDate);
+    const end = salesFormatDate(endDate);
+
+    try {
+        const { data, error } = await window.supabase
+            .from('sales')
+            .select('*')
+            .gte('sale_date', start)
+            .lte('sale_date', end)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map(fromSupabaseSale);
+    } catch (error) {
+        console.error('❌ getSalesByDateRange hatası:', error);
+        return [];
+    }
 }
 
 async function getLastNDaysSales(days) {
@@ -679,46 +442,8 @@ function downloadSalesCSV(sales, filename = 'satislar.csv') {
     link.click();
 }
 
-// ===== ONLINE/OFFLINE EVENT LISTENERS =====
-
-window.addEventListener('online', () => {
-    salesIsOnline = true;
-    syncSalesOfflineChanges();
-});
-
-window.addEventListener('online', () => {
-    salesIsOnline = true;
-    console.log('🌐 Online olundu, offline queue senkronize ediliyor...');
-    syncSalesOfflineChanges().then(() => {
-        console.log('✅ Offline queue senkronizasyonu tamamlandı');
-        // Rapor sayfası açıksa, verileri yenile
-        if (window.loadReport) {
-            window.loadReport();
-        }
-    }).catch(error => {
-        console.error('❌ Offline queue senkronizasyonu başarısız:', error);
-    });
-});
-
-window.addEventListener('offline', () => {
-    salesIsOnline = false;
-    console.log('⚠️ Offline moduna geçildi');
-});
-
-// ===== INIT =====
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadSalesOfflineQueue();
-    
-    // Eğer offline queue varsa ve online isek, sync et
-    if (navigator.onLine && salesOfflineQueue.length > 0) {
-        syncSalesOfflineChanges();
-    }
-});
-
 // ===== GLOBAL WINDOW EXPORTS =====
 
-// Geriye uyumluluk için mevcut fonksiyonları koru
 window.Sales = {
     getAllSales,
     getSalesByDate,
@@ -733,7 +458,6 @@ window.Sales = {
     downloadSalesCSV
 };
 
-// 🚀 KRITIK FIX: Global scope'ta direkt erişim için (cart.js ve reports.js tarafından çağrıldığı için)
 window.addSale = addSale;
 window.getAllSales = getAllSales;
 window.getSalesByDate = getSalesByDate;
@@ -746,4 +470,3 @@ window.calculateProductSales = calculateProductSales;
 window.formatDate = formatDate;
 window.salesFormatDate = salesFormatDate;
 window.formatDateDisplay = formatDateDisplay;
-

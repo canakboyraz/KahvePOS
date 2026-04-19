@@ -542,19 +542,30 @@ async function processOrder() {
         paymentData: paymentData
     };
     
-    // Satışı kaydet - Hybrid Mode (Supabase + localStorage)
+    // Satışı kaydet - Supabase Only
     try {
-        // Yeni addSale fonksiyonunu kullan (sales.js'ten)
-        // Timeout ekle - 10 saniye içinde tamamlanmazsa localStorage'a düş
+        // Oturum kontrolü
+        if (typeof window.supabase !== 'undefined') {
+            const { data: { session } } = await window.supabase.auth.getSession();
+            if (!session) {
+                showToast('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'error');
+                setTimeout(() => {
+                    if (typeof logout === 'function') logout();
+                }, 2000);
+                return;
+            }
+        }
+
+        // addSale fonksiyonunu kullan (sales.js'ten - Supabase Only)
         if (typeof addSale === 'function') {
             const salePromise = addSale(order);
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Satış kayıt timeout')), 10000)
+                setTimeout(() => reject(new Error('Satış kayıt timeout')), 30000)
             );
             await Promise.race([salePromise, timeoutPromise]);
         } else {
-            // Fallback: eski Storage yöntemini kullan
-            Storage.addSale(order);
+            showToast('Satış modülü yüklenemedi', 'error');
+            return;
         }
         
         // Modal'ı kapat
