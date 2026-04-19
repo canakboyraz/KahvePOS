@@ -545,8 +545,13 @@ async function processOrder() {
     // Satışı kaydet - Hybrid Mode (Supabase + localStorage)
     try {
         // Yeni addSale fonksiyonunu kullan (sales.js'ten)
+        // Timeout ekle - 10 saniye içinde tamamlanmazsa localStorage'a düş
         if (typeof addSale === 'function') {
-            await addSale(order);
+            const salePromise = addSale(order);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Satış kayıt timeout')), 10000)
+            );
+            await Promise.race([salePromise, timeoutPromise]);
         } else {
             // Fallback: eski Storage yöntemini kullan
             Storage.addSale(order);

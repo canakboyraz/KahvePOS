@@ -9,7 +9,7 @@ let isDarkMode = false;
 
 // Oturum yönetimi
 let autoLogoutTimer = null;
-let autoLogoutDuration = 60; // dakika
+let autoLogoutDuration = 0; // dakika - 0 = otomatik çıkış kapalı
 let activityCheckInterval = null;
 let lastActivityTime = Date.now();
 let sessionWarningTimeout = null;
