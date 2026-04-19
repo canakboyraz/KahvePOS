@@ -42,9 +42,32 @@ const SupabaseService = {
     
     /**
      * Kullanıcı girişi
+     * @param {string} emailOrUsername - E-posta adresi veya kullanıcı adı
+     * @param {string} password - Şifre
      */
-    async login(email, password) {
+    async login(emailOrUsername, password) {
         try {
+            let email = emailOrUsername;
+            
+            // Eğer username formatında değilse (içinde @ yoksa), profiles tablosunda ara
+            if (!emailOrUsername.includes('@')) {
+                console.log('🔍 SupabaseService: Kullanıcı adı ile giriş:', emailOrUsername);
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('email')
+                    .eq('username', emailOrUsername.trim())
+                    .single();
+                
+                if (profile?.email) {
+                    email = profile.email;
+                    console.log('📧 Bulunan email:', email);
+                } else {
+                    // Fallback - varsayılan format
+                    email = `${emailOrUsername}@kahvepos.local`;
+                    console.log('⚠️ Profile bulunamadı, fallback email:', email);
+                }
+            }
+            
             const { data, error } = await supabase.auth.signInWithPassword({
                 email: email,
                 password: password
@@ -110,19 +133,15 @@ const SupabaseService = {
             const { data, error } = await supabase
                 .from('products')
                 .select('*')
-                .eq('is_active', true)
+                .eq('active', true)
                 .order('name');
             
             if (error) throw error;
             
-            // Local cache'e kaydet
-            localStorage.setItem('kahvepos_products', JSON.stringify(data || []));
-            
             return data || [];
         } catch (error) {
             console.error('❌ Ürün yükleme hatası:', error);
-            // Offline ise localStorage'dan yükle
-            return JSON.parse(localStorage.getItem('kahvepos_products') || '[]');
+            return [];
         }
     },
     
@@ -498,47 +517,7 @@ const SupabaseService = {
     /**
      * localStorage verilerini Supabase'e aktar (migration)
      */
-    async migrateFromLocalStorage() {
-        console.log('🔄 localStorage verileri Supabase\'e aktarılıyor...');
-        
-        try {
-            // Ürünleri aktar
-            const products = JSON.parse(localStorage.getItem('kahvepos_products') || '[]');
-            for (const product of products) {
-                const { error } = await supabase
-                    .from('products')
-                    .upsert({
-                        ...product,
-                        is_active: true,
-                        migrated_at: new Date().toISOString()
-                    },
-                    { onConflict: 'name' });
-                
-                if (error) console.error('Ürün aktarım hatası:', product.name, error);
-            }
-            
-            // Satışları aktar
-            const sales = JSON.parse(localStorage.getItem('kahvepos_sales') || '[]');
-            for (const sale of sales) {
-                const { error } = await supabase
-                    .from('sales')
-                    .insert({
-                        ...sale,
-                        user_id: this.currentUser?.id,
-                        sale_date: sale.sale_date || this.formatDate(new Date(sale.created_at)),
-                        migrated_at: new Date().toISOString()
-                    });
-                
-                if (error) console.error('Satış aktarım hatası:', error);
-            }
-            
-            console.log('✅ Veri aktarımı tamamlandı!');
-            return { success: true, products: products.length, sales: sales.length };
-        } catch (error) {
-            console.error('❌ Veri aktarım hatası:', error);
-            return { success: false, error: error.message };
-        }
-    }
+    // migrateFromLocalStorage kaldırıldı - Supabase Only mode
 };
 
 // Global erişim için
