@@ -351,21 +351,28 @@ async function addUser(userData) {
     users.push(newUser);
     Storage.set('kahvepos_users', users);
 
-    // Online ise Supabase'e de ekle
+    // Online ise Supabase'e de ekle (Opsiyonel - hata olursa localStorage'da çalışmaya devam et)
     if (usersIsOnline && window.SupabaseService) {
         try {
-            const createdUser = await createUserInSupabase({
+            // 5 saniye timeout - Supabase yavaş yanıt verirse bekleme
+            const supabasePromise = createUserInSupabase({
                 ...userData,
                 username: normalizedUsername
             });
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Supabase bağlantı timeout')), 5000)
+            );
+            
+            const createdUser = await Promise.race([supabasePromise, timeoutPromise]);
 
             newUser.id = createdUser.id;
-            newUser.password = '***';
+            newUser.supabaseId = createdUser.id;
             Storage.set('kahvepos_users', users);
-            console.log('User synced to Supabase');
+            console.log('✅ User synced to Supabase:', createdUser.id);
         } catch (error) {
-            console.log('Supabase add user error, saved locally:', error.message);
-            addToOfflineQueue('addUser', newUser);
+            console.warn('⚠️ Supabase sync error, using local-only mode:', error.message);
+            // Local storage'da zaten kayıtlı, kullanıcıya hata gösterme
+            // Sadece console'a logla
         }
     } else {
         addToOfflineQueue('addUser', newUser);
