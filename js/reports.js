@@ -1109,6 +1109,7 @@ function setTodayDate() {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     dateInput.value = `${year}-${month}-${day}`;
+    loadReport();
 }
 
 // Sayfa yüklendiğinde tarihi ayarla ve raporu yükle
@@ -1158,41 +1159,8 @@ function formatTime(date) {
     });
 }
 
-async function getSalesByDate(date) {
-    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
-    if (typeof window.Sales !== 'undefined' && window.Sales.getSalesByDate) {
-        return await window.Sales.getSalesByDate(date);
-    }
-    // Fallback: doğrudan global fonksiyon
-    if (typeof window.getSalesByDate === 'function') {
-        return await window.getSalesByDate(date);
-    }
-    return [];
-}
-
-async function getSalesByDateRange(startDate, endDate) {
-    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
-    if (typeof window.Sales !== 'undefined' && window.Sales.getSalesByDateRange) {
-        return await window.Sales.getSalesByDateRange(startDate, endDate);
-    }
-    // Fallback: doğrudan global fonksiyon
-    if (typeof window.getSalesByDateRange === 'function') {
-        return await window.getSalesByDateRange(startDate, endDate);
-    }
-    return [];
-}
-
-async function getLastNDaysSales(days) {
-    // Sales modülündeki fonksiyonu kullan (Supabase entegre)
-    if (typeof window.Sales !== 'undefined' && window.Sales.getLastNDaysSales) {
-        return await window.Sales.getLastNDaysSales(days);
-    }
-    // Fallback: doğrudan global fonksiyon
-    if (typeof window.getLastNDaysSales === 'function') {
-        return await window.getLastNDaysSales(days);
-    }
-    return [];
-}
+// Not: getSalesByDate, getSalesByDateRange, getLastNDaysSales
+// sales.js tarafından global olarak sağlanır (window.Sales ve window.getSalesByDate)
 
 async function loadTop10Products(date, salesData) {
     // Sales modülündeki fonksiyonu kullan (Supabase entegre)
@@ -1534,20 +1502,87 @@ function filterPaymentByUser() {
     });
 }
 
-/**
- * Bugünün tarihini input'a set et
- */
-function setTodayDate() {
-    const dateInput = document.getElementById('report-date');
-    if (dateInput) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        dateInput.value = `${year}-${month}-${day}`;
-        loadReport();
+// ===== TRENDYOL SİPARİŞLERİ =====
+
+async function loadTrendyolOrders() {
+    const tableBody = document.getElementById('trendyol-orders-table');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Yükleniyor...</td></tr>';
+    
+    try {
+        const supabaseUrl = 'https://rnibcfiwsleobsdlfqfg.supabase.co';
+        const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuaWJjZml3c2xlMGJzZGxmcWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg5MzA1NDAsImV4cCI6MjA1NDUwNjU0MH0.R3vH3KGN1jXZOVwMY0fSx6gW1dJPYB8nTcRPbHGJCsg';
+        
+        const response = await fetch(
+            `${supabaseUrl}/functions/v1/trendyol-orders?action=list`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        const result = await response.json();
+        const orders = result.orders || [];
+        
+        if (orders.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">Henüz Trendyol siparişi yok</td></tr>';
+            return;
+        }
+        
+        tableBody.innerHTML = orders.map(order => {
+            const date = new Date(order.created_at).toLocaleString('tr-TR');
+            const items = order.order_items || [];
+            const itemsText = items.length > 0
+                ? items.map(i => `${i.quantity}x ${i.productName}`).join(', ')
+                : (order.raw_response?.lines || []).map(i => `${i.quantity || 1}x ${i.productName || i.name || 'Ürün'}`).join(', ');
+            
+            const statusBadge = {
+                'NEW': '<span style="background:#4CAF50;color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">Yeni</span>',
+                'PREPARING': '<span style="background:#FF9800;color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">Hazırlanıyor</span>',
+                'READY': '<span style="background:#2196F3;color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">Hazır</span>',
+                'DELIVERED': '<span style="background:#9C27B0;color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">Teslim Edildi</span>',
+                'CANCELLED': '<span style="background:#F44336;color:white;padding:2px 6px;border-radius:4px;font-size:0.75rem;">İptal</span>'
+            }[order.status] || `<span style="color:#999;">${order.status || 'Bilinmiyor'}</span>`;
+            
+            return `
+                <tr>
+                    <td>${date}</td>
+                    <td><strong>#${order.trendyol_order_id}</strong></td>
+                    <td>${escapeHtml(order.customer_name || 'Bilinmeyen')}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(itemsText)}">${escapeHtml(itemsText)}</td>
+                    <td class="numeric" style="color:#4CAF50;font-weight:bold;">${formatCurrency(order.total_amount)}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Trendyol siparişleri yüklenemedi:', error);
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#F44336;">Yüklenirken hata oluştu</td></tr>';
     }
 }
+
+// Sayfa yüklendiğinde Trendyol siparişlerini de yükle
+window.addEventListener('DOMContentLoaded', () => {
+    // Raporlar sayfasına geçildiğinde Trendyol siparişlerini yükle
+    const originalPerformPageSwitch = window.performPageSwitch;
+    if (typeof originalPerformPageSwitch === 'function') {
+        window.performPageSwitch = function(page) {
+            originalPerformPageSwitch(page);
+            if (page === 'reports') {
+                setTimeout(() => {
+                    if (typeof loadTrendyolOrders === 'function') {
+                        loadTrendyolOrders();
+                    }
+                }, 500);
+            }
+        };
+    }
+});
 
 // ===== GLOBAL EXPORT =====
 // HTML onclick="" ile çağrılabilmesi için window'a bağla
@@ -1557,7 +1592,7 @@ window.setTodayDate = setTodayDate;
 window.filterTransactions = filterTransactions;
 window.filterPaymentByUser = filterPaymentByUser;
 window.renderTransactionDetails = renderTransactionDetails;
-window.formatDate = formatDate;
-window.formatDateDisplay = formatDateDisplay;
+window.loadTrendyolOrders = loadTrendyolOrders;
+// Not: formatDate, formatDateDisplay → sales.js tarafından export edilir
 
 
